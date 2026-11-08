@@ -48,4 +48,5 @@ Supabase 프로젝트 `hunsu-omok`(서울)에 올라가 있습니다.
 - `supabase/functions/llm-move` — 판을 보여주고 모델에게 한 수를 받음. 불법수는 한 번 되묻고, 두 번이면 몰수.
 - `supabase/functions/report-game` — 끝난 대국을 기록하고 (선수, 종목)별 Elo·불법수·훈수 적중을 갱신.
 - 테이블: `players`, `games`, `ratings`, 뷰 `leaderboard`. 읽기는 공개, 쓰기는 서버 함수만.
-- 비밀값: Edge Functions Secrets에 `OPENAI_API_KEY` 하나.
+- 비밀값: Edge Functions Secrets에 `OPENAI_API_KEY`, `GEMINI_API_KEY`.
+- 선수 키는 `provider:model[:추론깊이]` — 같은 모델도 추론 낮음/보통/높음이 리더보드의 다른 줄이 된다.
