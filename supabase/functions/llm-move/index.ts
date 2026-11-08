@@ -1,4 +1,4 @@
-// 모델에게 판을 보여주고 훈수(추천 자리) 하나를 받는다. OpenAI·Gemini. 불법수는 한 번 되물은 뒤 기록한다.
+// 모델에게 판을 보여주고 훈수(추천 자리) 하나를 받는다. OpenAI·Gemini·Claude. 불법수는 한 번 되물은 뒤 기록한다.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const CORS = {
@@ -13,7 +13,7 @@ type Req = {
   board: number[][];           // 0 빈칸, 1 흑, 2 백
   toMove: 1 | 2;
   history?: string[];          // ["H8","I8",...]
-  model?: { provider?: "openai" | "google"; name?: string; temperature?: number; reasoning?: "low" | "medium" | "high" };
+  model?: { provider?: "openai" | "google" | "anthropic"; name?: string; temperature?: number; reasoning?: "low" | "medium" | "high" };
 };
 type Out = { move?: string; reason?: string; ms: number; usage?: unknown };
 
@@ -84,17 +84,41 @@ async function askGemini(apiKey: string, name: string, temperature: number, reas
   return { ...parseJson(text || "{}"), ms, usage: j.usageMetadata };
 }
 
+async function askAnthropic(apiKey: string, name: string, temperature: number, reasoning: string | undefined, sys: string, msgs: Msg[]): Promise<Out> {
+  const body: Record<string, unknown> = {
+    model: name,
+    max_tokens: 12000,
+    system: sys + " 설명 없이 JSON 한 덩어리만 출력합니다.",
+    messages: msgs.map((m) => ({ role: m.role, content: m.content })),
+  };
+  // 확장 사고로 깊이를 잡는다. 낮음은 사고 없이 바로 답한다.
+  const budget = reasoning === "high" ? 8192 : reasoning === "medium" ? 2048 : 0;
+  if (budget > 0) body.thinking = { type: "enabled", budget_tokens: budget };
+  else body.temperature = temperature;
+  const t0 = Date.now();
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" }, body: JSON.stringify(body) });
+  const ms = Date.now() - t0;
+  if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const j = await res.json();
+  const text = (j.content ?? []).filter((p: { type: string }) => p.type === "text").map((p: { text?: string }) => p.text ?? "").join("");
+  return { ...parseJson(text || "{}"), ms, usage: j.usage };
+}
+
+const KEY_ENV: Record<string, string> = { openai: "OPENAI_API_KEY", google: "GEMINI_API_KEY", anthropic: "ANTHROPIC_API_KEY" };
+const DEFAULT_MODEL: Record<string, string> = { openai: "gpt-4.1-mini", google: "gemini-2.5-flash", anthropic: "claude-haiku-5-5" };
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
     const { board, toMove, history = [], model = {} } = (await req.json()) as Req;
     if (!Array.isArray(board) || board.length !== N) return json({ error: "board" }, 400);
-    const provider = model.provider || "openai";
-    const name = model.name || (provider === "google" ? "gemini-2.5-flash" : "gpt-4.1-mini");
+    const provider = (model.provider && model.provider in KEY_ENV) ? model.provider : "openai";
+    const name = model.name || DEFAULT_MODEL[provider];
     const temperature = model.temperature ?? 0.2;
-    const apiKey = Deno.env.get(provider === "google" ? "GEMINI_API_KEY" : "OPENAI_API_KEY");
-    if (!apiKey) return json({ error: (provider === "google" ? "GEMINI_API_KEY" : "OPENAI_API_KEY") + "가 서버에 설정되지 않았습니다." }, 500);
-    const ask = provider === "google" ? askGemini : askOpenAI;
+    const apiKey = Deno.env.get(KEY_ENV[provider]);
+    if (!apiKey) return json({ error: KEY_ENV[provider] + "가 서버에 설정되지 않았습니다." }, 500);
+    const ask = provider === "google" ? askGemini : provider === "anthropic" ? askAnthropic : askOpenAI;
 
     const me = toMove === 1 ? "X (흑)" : "O (백)";
     const sys =

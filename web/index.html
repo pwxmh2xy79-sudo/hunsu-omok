@@ -108,6 +108,7 @@ button:focus-visible,canvas:focus-visible,select:focus-visible{outline:2px solid
       <span class="lbl">엔진</span><div class="cfg"><span>정답 엔진. 항상 1·2·3을 찍습니다.</span></div>
       <span class="lbl"><input type="checkbox" data-c="openai" data-k="on" id="onOpenai">GPT</span><div class="cfg" id="cfgOpenai"></div>
       <span class="lbl"><input type="checkbox" data-c="google" data-k="on" id="onGoogle">Gemini</span><div class="cfg" id="cfgGoogle"></div>
+      <span class="lbl"><input type="checkbox" data-c="anthropic" data-k="on" id="onAnthropic">Claude</span><div class="cfg" id="cfgAnthropic"></div>
     </div>
   </section>
 
@@ -269,20 +270,21 @@ const SB_URL='https://fyrtbxbgvsqoiaktkkcx.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5cnRieGJndnNxb2lha3Rra2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwODc5NzksImV4cCI6MjEwOTY2Mzk3OX0.NH-NjK8_LE1kFSlWmx-7nJLDUoR5XD8_4_Pi59NPe5k';
 const COLS='ABCDEFGHIJKLMNO';
 const AUTO_FROM=3; // 자동 훈수는 3수부터. 버튼은 첫 수부터.
-const MODELS={openai:['gpt-4.1-mini','gpt-4.1','gpt-5-mini','gpt-5','o4-mini'], google:['gemini-2.5-flash','gemini-2.5-pro','gemini-2.5-flash-lite']};
-const PROV_KO={openai:'GPT',google:'Gemini'}, MARK={openai:'G',google:'Ge'};
+const PROVS=['openai','google','anthropic'];
+const MODELS={openai:['gpt-4.1-mini','gpt-4.1','gpt-5-mini','gpt-5','o4-mini'], google:['gemini-2.5-flash','gemini-2.5-pro','gemini-2.5-flash-lite'], anthropic:['claude-haiku-5-5','claude-sonnet-5-5','claude-opus-5-5']};
+const PROV_KO={openai:'GPT',google:'Gemini',anthropic:'Claude'}, MARK={openai:'G',google:'Ge',anthropic:'C'}, MCOL={openai:'#2F6FD6',google:'#B4541F',anthropic:'#7A4FC9'};
 const REASON_KO={low:'낮음',medium:'보통',high:'높음'};
 let S, busy=false;
 
 function coachCfg(provider){ return {on:false,provider,name:MODELS[provider][0],reasoning:'medium'}; }
-function coachStat(){ return {asked:0,top1:0,top3:0,illegal:0,adopted:0,ms:0,wins:0,losses:0,draws:0}; }
+function coachStat(){ return {asked:0,top1:0,top3:0,illegal:0,adopted:0,ms:0}; }
 function fresh(){ return {board:emptyBoard(),moves:[],turn:1,winner:0,win:null,mode:'pvp',pending:null,marks:[],
   say:'가운데가 가장 넓습니다. 첫 수는 거기서.',urgent:false,auto:true,wins:{1:0,2:0},
-  coaches:{openai:coachCfg('openai'),google:coachCfg('google')}, cs:{openai:coachStat(),google:coachStat()}, ask:null, reported:false}; }
-function isReasoning(c){ return c.provider==='openai'?/^(o\d|gpt-5)/.test(c.name):/gemini-(2\.5|3)/.test(c.name); }
+  coaches:{openai:coachCfg('openai'),google:coachCfg('google'),anthropic:coachCfg('anthropic')}, cs:{openai:coachStat(),google:coachStat(),anthropic:coachStat()}, duel:[], ask:null, reported:false}; }
+function isReasoning(c){ return c.provider==='openai'?/^(o\d|gpt-5)/.test(c.name):c.provider==='google'?/gemini-(2\.5|3)/.test(c.name):true; }
 function coachKey(c){ return c.provider+':'+c.name+(isReasoning(c)?':'+c.reasoning:''); }
 function coachName(c){ return c.name+(isReasoning(c)?' ·추론 '+REASON_KO[c.reasoning]:''); }
-function activeCoaches(){ return ['openai','google'].filter(k=>S.coaches[k].on); }
+function activeCoaches(){ return PROVS.filter(k=>S.coaches[k].on); }
 function isBotTurn(){ return S.mode==='ai'&&S.turn===2&&!S.winner; }
 function seatLabel(c){ return c===1?'흑':'백'; }
 
@@ -326,7 +328,7 @@ function draw(){
     ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(i+1),cx,cy+1);
   });
   if(S.ask&&S.ask.n===S.moves.length){ for(const k of Object.keys(S.ask.coaches)){ const m=S.ask.coaches[k]; if(m.x==null) continue;
-    const cx=o+m.x*cell, cy=o+m.y*cell; const col=k==='openai'?'#2F6FD6':'#B4541F';
+    const cx=o+m.x*cell, cy=o+m.y*cell; const col=MCOL[k];
     ctx.lineWidth=2.5; ctx.strokeStyle=col; ctx.beginPath(); ctx.arc(cx,cy,r*0.95,0,Math.PI*2); ctx.stroke();
     ctx.fillStyle=col; ctx.beginPath(); ctx.arc(cx+r*0.7,cy-r*0.7,r*0.55,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#fff'; ctx.font=`700 ${Math.round(cell*0.36)}px ${css('--body')}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(MARK[k],cx+r*0.7,cy-r*0.7+1); } }
@@ -341,7 +343,7 @@ function cfgHtml(k){
   h+=`<label>추론 <select data-c="${k}" data-k="reasoning"><option value="low"${c.reasoning==='low'?' selected':''}>낮음</option><option value="medium"${c.reasoning==='medium'?' selected':''}>보통</option><option value="high"${c.reasoning==='high'?' selected':''}>높음</option></select></label>`;
   return h;
 }
-function renderCoaches(){ el('cfgOpenai').innerHTML=cfgHtml('openai'); el('cfgGoogle').innerHTML=cfgHtml('google'); el('onOpenai').checked=S.coaches.openai.on; el('onGoogle').checked=S.coaches.google.on; }
+function renderCoaches(){ for(const [k,id] of [['openai','Openai'],['google','Google'],['anthropic','Anthropic']]){ el('cfg'+id).innerHTML=cfgHtml(k); el('on'+id).checked=S.coaches[k].on; } }
 function renderCsay(){
   const box=el('csay'); box.innerHTML='';
   if(!S.ask||S.ask.n!==S.moves.length) return;
@@ -412,24 +414,25 @@ async function askCoach(k, ask){
 }
 function settleAsk(x,y){
   const a=S.ask; if(!a||a.n!==S.moves.length||a.turn!==S.turn) return;
-  const ks=Object.keys(a.coaches).filter(k=>a.coaches[k]&&a.coaches[k].x!=null);
-  for(const k of ks){ const m=a.coaches[k]; if(m.x===x&&m.y===y) S.cs[k].adopted++; }
-  // 두 훈수꾼이 다 답했으면 엔진 점수로 그 수의 승패를 가른다 (둘 수 없는 자리는 패)
-  const both=['openai','google'].every(k=>a.coaches[k]&&!a.coaches[k].error);
-  if(both){ const g=a.coaches.openai, m=a.coaches.google; const sg=g.x==null?-1:g.score, sm=m.x==null?-1:m.score;
-    if(sg>sm){ S.cs.openai.wins++; S.cs.google.losses++; } else if(sm>sg){ S.cs.google.wins++; S.cs.openai.losses++; } else { S.cs.openai.draws++; S.cs.google.draws++; } }
+  const rec={};
+  for(const k of Object.keys(a.coaches)){ const m=a.coaches[k]; if(!m||m.error) continue;
+    rec[k]=m.x==null?-1:m.score;                      // 둘 수 없는 자리는 최하점
+    if(m.x===x&&m.y===y) S.cs[k].adopted++; }
+  if(Object.keys(rec).length>=2) S.duel.push(rec);
 }
+function pairScore(a,b){ let w=0,l=0,d=0; for(const r of S.duel){ if(!(a in r)||!(b in r)) continue; if(r[a]>r[b]) w++; else if(r[b]>r[a]) l++; else d++; } return {w,l,d,n:w+l+d}; }
 function coachPayload(k){ const c=S.coaches[k]; return {key:coachKey(c),kind:'model',provider:k,model:c.name,config:{reasoning:c.reasoning}}; }
 async function report(){
   if(S.reported) return; const act=activeCoaches().filter(k=>S.cs[k].asked>0); if(!act.length) return; S.reported=true;
-  const stats={illegal:{},hint:{}}; for(const k of act){ const key=coachKey(S.coaches[k]); stats.illegal[key]=S.cs[k].illegal; stats.hint[key]={hits:S.cs[k].top3,total:S.cs[k].asked}; }
-  let body;
-  if(act.length===2){ const g=S.cs.openai, m=S.cs.google; const result=g.wins>m.wins?'black':m.wins>g.wins?'white':'draw';
-    body={gameType:'omok',black:coachPayload('openai'),white:coachPayload('google'),moves:S.moves,result,stats}; }
-  else { const k=act[0]; body={gameType:'omok',black:coachPayload(k),white:coachPayload(k),moves:S.moves,result:'draw',stats}; }
-  let j; try{ j=await sbFetch('/functions/v1/report-game',body); }catch(e){ j={error:String(e)}; }
-  if(j.ok&&j.rated){ const g=S.cs.openai, m=S.cs.google;
-    setSay(`이 판의 훈수 대결 ${PROV_KO.openai} ${g.wins}승 ${m.wins}패 ${g.draws}무 · Elo ${PROV_KO.openai} ${j.black.elo} (${j.black.delta>=0?'+':''}${j.black.delta}), ${PROV_KO.google} ${j.white.elo} (${j.white.delta>=0?'+':''}${j.white.delta})`); }
+  const statsFor=(keys,used)=>{ const st={illegal:{},hint:{}}; for(const k of keys){ if(used.has(k)) continue; used.add(k); const key=coachKey(S.coaches[k]); st.illegal[key]=S.cs[k].illegal; st.hint[key]={hits:S.cs[k].top3,total:S.cs[k].asked}; } return st; };
+  const used=new Set(); const lines=[];
+  if(act.length===1){ const k=act[0]; await sbFetch('/functions/v1/report-game',{gameType:'omok',black:coachPayload(k),white:coachPayload(k),moves:S.moves,result:'draw',stats:statsFor([k],used)}).catch(()=>{}); }
+  else for(let i=0;i<act.length;i++) for(let j=i+1;j<act.length;j++){ const a=act[i], b=act[j]; const p=pairScore(a,b);
+    if(!p.n){ continue; }
+    const result=p.w>p.l?'black':p.l>p.w?'white':'draw';
+    let r; try{ r=await sbFetch('/functions/v1/report-game',{gameType:'omok',black:coachPayload(a),white:coachPayload(b),moves:S.moves,result,stats:statsFor([a,b],used)}); }catch(e){ r={error:String(e)}; }
+    if(r.ok&&r.rated) lines.push(`${PROV_KO[a]} ${p.w}–${p.l} ${PROV_KO[b]} (Elo ${r.black.elo}${r.black.delta>=0?'+':''}${r.black.delta} / ${r.white.elo}${r.white.delta>=0?'+':''}${r.white.delta})`); }
+  if(lines.length) setSay('이 판의 훈수 대결 · '+lines.join(' · '));
   loadLeaderboard();
 }
 async function loadLeaderboard(){

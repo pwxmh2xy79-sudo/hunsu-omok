@@ -46,10 +46,10 @@ npx cap open android  # Android Studio
 모델은 두지 않는다. 사람이 두고, 모델은 **훈수만** 둔다.
 
 - 흑·백은 사람(한 폰에서 번갈아) 또는 연습 상대(엔진).
-- 훈수꾼 자리: 엔진(항상), GPT(켜고 끔), Gemini(켜고 끔). 3수부터 자동, 버튼으로는 첫 수부터.
-- 매 수마다 모델 훈수꾼들이 같은 판을 보고 각자 한 자리를 찍는다. 판 위에 G(GPT)·Ge(Gemini) 표식.
+- 훈수꾼 자리: 엔진(항상), GPT·Gemini·Claude(각각 켜고 끔). 3수부터 자동, 버튼으로는 첫 수부터.
+- 매 수마다 모델 훈수꾼들이 같은 판을 보고 각자 한 자리를 찍는다. 판 위에 G(GPT)·Ge(Gemini)·C(Claude) 표식.
 - 채점: 엔진 1순위/상위 3 일치, 둘 수 없는 자리(불법수), 사람이 따랐는지(채택), 응답 시간.
-- 두 훈수꾼이 다 답한 수는 엔진 점수로 승패를 가르고, 판이 끝나면 그 합으로 훈수꾼끼리 Elo를 갱신한다.
+- 둘 이상이 답한 수는 엔진 점수로 짝마다 승패를 가르고, 판이 끝나면 짝별 합으로 Elo를 갱신한다 (GPT↔Gemini, GPT↔Claude, Gemini↔Claude).
 - 선수 키 `provider:model[:추론깊이]` — 같은 모델도 추론 낮음/보통/높음이 다른 줄.
 
 서버는 Supabase 프로젝트 `hunsu-omok`(서울).
@@ -57,4 +57,4 @@ npx cap open android  # Android Studio
 - `supabase/functions/llm-move` — 판을 보여주고 훈수 한 자리를 받음. 불법수는 한 번 되묻고, 두 번이면 무효.
 - `supabase/functions/report-game` — 판이 끝나면 기록하고 (훈수꾼, 종목)별 Elo·불법수·적중을 갱신.
 - 테이블: `players`, `games`, `ratings`, 뷰 `leaderboard`. 읽기는 공개, 쓰기는 서버 함수만.
-- 비밀값: Edge Functions Secrets에 `OPENAI_API_KEY`, `GEMINI_API_KEY`.
+- 비밀값: Edge Functions Secrets에 `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`.
