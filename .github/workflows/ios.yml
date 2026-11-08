@@ -1,0 +1,30 @@
+name: iOS build
+
+# 시뮬레이터용 빌드(서명 없음). 실기기·앱스토어 배포는 Apple Developer 계정의
+# 인증서·프로비저닝 프로파일을 Secrets로 넣은 뒤 아래 주석 단계를 켠다.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  ios:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Create iOS project
+        run: |
+          if [ ! -d ios ]; then npx cap add ios; fi
+          npx cap sync ios
+      - name: Build for simulator
+        working-directory: ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace -scheme App \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build

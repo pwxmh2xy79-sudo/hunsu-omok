@@ -1,0 +1,15 @@
+{
+  "appId": "com.zeron.hunsuomok",
+  "appName": "훈수 오목",
+  "webDir": "web",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#14171C"
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#14171C"
+  }
+}
