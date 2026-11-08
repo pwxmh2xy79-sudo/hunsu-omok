@@ -54,9 +54,14 @@ Deno.serve(async (req) => {
       hint_total: row.hint_total + (r.stats?.hint?.[key]?.total ?? 0),
       updated_at: new Date().toISOString(),
     });
-    const nb = upd(B, sb_, eb, r.black.key);
-    const nw = upd(same ? nb : W, 1 - sb_, ew, r.white.key);
-    const rows = same ? [nw] : [nb, nw];
+    // 같은 훈수꾼 혼자 쓴 판: 승패·Elo 없이 횟수·불법수·적중만 쌓는다
+    const solo = (row: typeof B, key: string) => ({ ...row, games: row.games + 1,
+      illegal_moves: row.illegal_moves + (r.stats?.illegal?.[key] ?? 0),
+      hint_hits: row.hint_hits + (r.stats?.hint?.[key]?.hits ?? 0), hint_total: row.hint_total + (r.stats?.hint?.[key]?.total ?? 0),
+      updated_at: new Date().toISOString() });
+    const nb = same ? solo(B, r.black.key) : upd(B, sb_, eb, r.black.key);
+    const nw = same ? nb : upd(W, 1 - sb_, ew, r.white.key);
+    const rows = same ? [nb] : [nb, nw];
     const { error: re } = await sb.from("ratings").upsert(rows, { onConflict: "player,game_type" });
     if (re) throw re;
     return json({ ok: true, rated: !same, black: { elo: Math.round(nb.elo), delta: Math.round(nb.elo - B.elo) }, white: { elo: Math.round(nw.elo), delta: Math.round(nw.elo - W.elo) } });

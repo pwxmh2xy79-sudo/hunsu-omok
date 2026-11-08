@@ -41,12 +41,20 @@ npx cap open android  # Android Studio
 2. 온라인 대국(방 코드·랜덤 매칭) + Elo 랭킹
 3. AI 설정(추론 깊이·모델) + LLM 해설 + 구독 결제(RevenueCat)
 
-## 경기장(모델 평가) 서버
+## 훈수 경기장 (모델 평가)
 
-Supabase 프로젝트 `hunsu-omok`(서울)에 올라가 있습니다.
+모델은 두지 않는다. 사람이 두고, 모델은 **훈수만** 둔다.
 
-- `supabase/functions/llm-move` — 판을 보여주고 모델에게 한 수를 받음. 불법수는 한 번 되묻고, 두 번이면 몰수.
-- `supabase/functions/report-game` — 끝난 대국을 기록하고 (선수, 종목)별 Elo·불법수·훈수 적중을 갱신.
+- 흑·백은 사람(한 폰에서 번갈아) 또는 연습 상대(엔진).
+- 훈수꾼 자리: 엔진(항상), GPT(켜고 끔), Gemini(켜고 끔). 3수부터 자동, 버튼으로는 첫 수부터.
+- 매 수마다 모델 훈수꾼들이 같은 판을 보고 각자 한 자리를 찍는다. 판 위에 G(GPT)·Ge(Gemini) 표식.
+- 채점: 엔진 1순위/상위 3 일치, 둘 수 없는 자리(불법수), 사람이 따랐는지(채택), 응답 시간.
+- 두 훈수꾼이 다 답한 수는 엔진 점수로 승패를 가르고, 판이 끝나면 그 합으로 훈수꾼끼리 Elo를 갱신한다.
+- 선수 키 `provider:model[:추론깊이]` — 같은 모델도 추론 낮음/보통/높음이 다른 줄.
+
+서버는 Supabase 프로젝트 `hunsu-omok`(서울).
+
+- `supabase/functions/llm-move` — 판을 보여주고 훈수 한 자리를 받음. 불법수는 한 번 되묻고, 두 번이면 무효.
+- `supabase/functions/report-game` — 판이 끝나면 기록하고 (훈수꾼, 종목)별 Elo·불법수·적중을 갱신.
 - 테이블: `players`, `games`, `ratings`, 뷰 `leaderboard`. 읽기는 공개, 쓰기는 서버 함수만.
 - 비밀값: Edge Functions Secrets에 `OPENAI_API_KEY`, `GEMINI_API_KEY`.
-- 선수 키는 `provider:model[:추론깊이]` — 같은 모델도 추론 낮음/보통/높음이 리더보드의 다른 줄이 된다.

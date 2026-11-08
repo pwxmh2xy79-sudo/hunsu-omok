@@ -1,4 +1,4 @@
-// 모델에게 판을 보여주고 한 수를 받는다. OpenAI·Gemini. 불법수는 한 번 되물은 뒤 기록한다.
+// 모델에게 판을 보여주고 훈수(추천 자리) 하나를 받는다. OpenAI·Gemini. 불법수는 한 번 되물은 뒤 기록한다.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const CORS = {
@@ -98,11 +98,11 @@ Deno.serve(async (req) => {
 
     const me = toMove === 1 ? "X (흑)" : "O (백)";
     const sys =
-      `당신은 15x15 오목(五目) 선수입니다. 가로·세로·대각선으로 돌 다섯 개를 먼저 이으면 이깁니다. ` +
-      `당신의 돌은 ${me}입니다. 반드시 빈칸(.)에만 두세요. ` +
+      `당신은 15x15 오목(五目) 훈수꾼입니다. 가로·세로·대각선으로 돌 다섯 개를 먼저 이으면 이깁니다. ` +
+      `지금 둘 차례는 ${me}입니다. 그 편에서 가장 좋은 자리 하나를 고르세요. 반드시 빈칸(.)이어야 합니다. ` +
       `좌표는 열 문자(A~O)+행 숫자(1~15)로 씁니다. 예: H8. ` +
-      `JSON으로만 답합니다: {"move":"H8","reason":"한두 문장"}`;
-    const msgs: Msg[] = [{ role: "user", content: `현재 판:\n${boardText(board)}\n지금까지 수순: ${history.join(" ") || "(없음)"}\n당신 차례입니다.` }];
+      `JSON으로만 답합니다: {"move":"H8","reason":"왜 그 자리인지 한두 문장"}`;
+    const msgs: Msg[] = [{ role: "user", content: `현재 판:\n${boardText(board)}\n지금까지 수순: ${history.join(" ") || "(없음)"}\n훈수를 주세요.` }];
 
     let illegal = 0, totalMs = 0, last: Out | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
