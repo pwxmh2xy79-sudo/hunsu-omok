@@ -61,6 +61,20 @@ label.sw{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;color:v
 label.sw input{accent-color:var(--accent)}
 .log{font-size:.8rem;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
 .log span b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}
+.gpt{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:.85rem;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.gpt label{display:inline-flex;align-items:center;gap:6px}
+.gpt select,.gpt input[type=range]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:4px 6px}
+.gpt input[type=range]{width:90px;padding:0;border:0;accent-color:var(--accent)}
+.gpt b{font-variant-numeric:tabular-nums;color:var(--fg);font-weight:500}
+.coach p.gptsay{color:var(--muted);font-size:.9rem}
+.lb{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.lb .who{display:flex;align-items:center;gap:8px;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lb .who i{width:8px;height:8px;border-radius:50%;background:var(--fg);display:inline-block}
+.lb table{width:100%;border-collapse:collapse;font-size:.85rem;font-variant-numeric:tabular-nums}
+.lb th{text-align:left;font-weight:500;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--line)}
+.lb td{padding:6px 0;border-bottom:1px solid var(--line)}
+.lb tr:last-child td{border-bottom:0}
+.lb td:not(:first-child),.lb th:not(:first-child){text-align:right}
 button:focus-visible,canvas:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (prefers-reduced-motion:no-preference){ .coach p{transition:color .2s} }
 </style>
@@ -74,6 +88,7 @@ button:focus-visible,canvas:focus-visible{outline:2px solid var(--accent);outlin
     <div class="seg" role="group" aria-label="대국 방식">
       <button id="modePvp" aria-pressed="true">둘이서</button>
       <button id="modeAi" aria-pressed="false">연습 상대</button>
+      <button id="modeGpt" aria-pressed="false">GPT 대국</button>
     </div>
   </header>
 
@@ -83,18 +98,31 @@ button:focus-visible,canvas:focus-visible{outline:2px solid var(--accent);outlin
     <span class="hint" id="tapHint">같은 자리 두 번 누르면 착수</span>
   </div>
 
+  <div class="gpt" id="gptBox" hidden>
+    <label>모델 <select id="gptName"><option>gpt-4.1-mini</option><option>gpt-4.1</option><option>gpt-5-mini</option><option>gpt-5</option><option>o4-mini</option></select></label>
+    <label>온도 <input type="range" id="gptTemp" min="0" max="1" step="0.1" value="0.2"><b id="gptTempV">0.2</b></label>
+    <label>추론 <select id="gptReason"><option value="low">낮음</option><option value="medium" selected>보통</option><option value="high">높음</option></select></label>
+    <label><input type="checkbox" id="gptBlack">GPT가 흑</label>
+  </div>
+
   <div class="board"><canvas id="cv" tabindex="0" aria-label="오목판 15줄"></canvas></div>
 
   <section class="coach" aria-live="polite">
     <div class="who"><i></i>훈수꾼</div>
     <p id="say">가운데가 가장 넓습니다. 첫 수는 거기서.</p>
+    <p id="gptSay" class="gptsay" hidden></p>
     <div class="row">
       <button class="btn main" id="btnCoach">훈수</button>
       <button class="btn" id="btnUndo">무르기</button>
       <button class="btn" id="btnNew">새 대국</button>
       <label class="sw"><input type="checkbox" id="autoCoach" checked>3수부터 자동 훈수</label>
     </div>
-    <div class="log"><span>수 <b id="nMoves">0</b></span><span>흑 <b id="winB">0</b>승</span><span>백 <b id="winW">0</b>승</span></div>
+    <div class="log"><span>수 <b id="nMoves">0</b></span><span>흑 <b id="winB">0</b>승</span><span>백 <b id="winW">0</b>승</span><span id="gptStat" hidden>GPT 불법수 <b id="nIll">0</b> · 적중 <b id="nHit">0/0</b></span></div>
+  </section>
+
+  <section class="lb" id="lbBox" hidden>
+    <div class="who"><i></i>오목 리더보드</div>
+    <table id="lbTable"><thead><tr><th>선수</th><th>Elo</th><th>전적</th><th>불법수</th><th>적중</th></tr></thead><tbody></tbody></table>
   </section>
 </div>
 
@@ -231,9 +259,15 @@ function situation(b, next){
 (function(){
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const el=id=>document.getElementById(id);
-let S;
-function fresh(){ return {board:emptyBoard(),moves:[],turn:1,winner:0,win:null,mode:'pvp',pending:null,marks:[],say:'가운데가 가장 넓습니다. 첫 수는 거기서.',urgent:false,auto:true,wins:{1:0,2:0}}; }
+const SB_URL='https://fyrtbxbgvsqoiaktkkcx.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5cnRieGJndnNxb2lha3Rra2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwODc5NzksImV4cCI6MjEwOTY2Mzk3OX0.NH-NjK8_LE1kFSlWmx-7nJLDUoR5XD8_4_Pi59NPe5k';
+const COLS='ABCDEFGHIJKLMNO';
 const AUTO_FROM=3; // 자동 훈수는 3수부터. 버튼은 첫 수부터.
+let S, busy=false, tick=null;
+function fresh(){ return {board:emptyBoard(),moves:[],turn:1,winner:0,win:null,mode:'pvp',pending:null,marks:[],say:'가운데가 가장 넓습니다. 첫 수는 거기서.',urgent:false,auto:true,wins:{1:0,2:0},
+  gpt:{name:'gpt-4.1-mini',temperature:0.2,reasoning:'medium',color:2}, stats:{illegal:0,hits:0,total:0,hHits:0,hTotal:0}, gptSay:'', reported:false}; }
+function gptKey(){ return 'openai:'+S.gpt.name; }
+function isGptTurn(){ return S.mode==='gpt' && S.turn===S.gpt.color && !S.winner; }
 
 function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
@@ -287,11 +321,16 @@ function draw(){
 function setSay(t,urgent){ S.say=t; S.urgent=!!urgent; el('say').textContent=t; el('say').classList.toggle('urgent',!!urgent); }
 function render(){
   el('turnStone').className='stone '+(S.turn===1?'b':'w');
-  el('turnText').textContent=S.winner? (S.winner===1?'흑 승':'백 승') : (S.turn===1?'흑 차례':'백 차례')+(S.mode==='ai'&&S.turn===2?' (훈수꾼이 둡니다)':'');
+  el('turnText').textContent=S.winner? (S.winner===1?'흑 승':S.winner===2?'백 승':'무승부') : (S.turn===1?'흑 차례':'백 차례')+(S.mode==='ai'&&S.turn===2?' (훈수꾼이 둡니다)': isGptTurn()?' (GPT 생각 중)':'');
+  el('gptBox').hidden=S.mode!=='gpt'; el('lbBox').hidden=S.mode!=='gpt'; el('gptStat').hidden=S.mode!=='gpt';
+  el('gptName').value=S.gpt.name; el('gptTemp').value=S.gpt.temperature; el('gptTempV').textContent=S.gpt.temperature; el('gptReason').value=S.gpt.reasoning; el('gptBlack').checked=S.gpt.color===1;
+  el('nIll').textContent=S.stats.illegal; el('nHit').textContent=S.stats.hits+'/'+S.stats.total;
+  el('gptSay').hidden=!(S.mode==='gpt'&&S.gptSay); el('gptSay').textContent=S.gptSay;
+  el('modeGpt').setAttribute('aria-pressed',S.mode==='gpt');
   el('tapHint').hidden=!!S.winner;
   el('nMoves').textContent=S.moves.length; el('winB').textContent=S.wins[1]; el('winW').textContent=S.wins[2];
   el('btnUndo').disabled=S.moves.length===0;
-  el('btnCoach').disabled=!!S.winner||(S.mode==='ai'&&S.turn===2);
+  el('btnCoach').disabled=!!S.winner||(S.mode==='ai'&&S.turn===2)||isGptTurn();
   el('modePvp').setAttribute('aria-pressed',S.mode==='pvp'); el('modeAi').setAttribute('aria-pressed',S.mode==='ai');
   el('autoCoach').checked=S.auto;
   el('say').textContent=S.say; el('say').classList.toggle('urgent',S.urgent);
@@ -304,17 +343,56 @@ function place(x,y){
   const list=bestMoves(S.board,me); const best=list[0];
   const played=list.find(m=>m.x===x&&m.y===y)||scoreMove(S.board,x,y,me);
   S.board[y][x]=me; S.moves.push({x,y,c:me}); S.pending=null; S.marks=[];
+  if(S.mode==='gpt'){ const hit=list.slice(0,3).some(m=>m.x===x&&m.y===y)?1:0;
+    if(me===S.gpt.color){ S.stats.total++; S.stats.hits+=hit; } else { S.stats.hTotal++; S.stats.hHits+=hit; } }
   const line=winLine(S.board,x,y);
-  if(line){ S.winner=me; S.win=line; S.wins[me]++; setSay((me===1?'흑':'백')+' 승. 다섯이 섰습니다.'); render(); return; }
-  if(S.moves.length===N*N){ S.winner=3; setSay('판이 꽉 찼습니다. 무승부.'); render(); return; }
+  if(line){ S.winner=me; S.win=line; S.wins[me]++; setSay((me===1?'흑':'백')+' 승. 다섯이 섰습니다.'); render(); report(me===1?'black':'white'); return; }
+  if(S.moves.length===N*N){ S.winner=3; setSay('판이 꽉 찼습니다. 무승부.'); render(); report('draw'); return; }
   S.turn=3-me;
-  const isHuman=!(S.mode==='ai'&&me===2);
+  const isHuman=!((S.mode==='ai'&&me===2)||(S.mode==='gpt'&&me===S.gpt.color));
   const sit=situation(S.board,S.turn);
   if(isHuman){ const r=rateMove(best,played,me); setSay(sit?r+' '+sit:r, !!sit && /막아야|위험|사가 서/.test(sit)); }
   else setSay(sit||'훈수꾼이 두었습니다. 흑 차례.', !!sit);
   render();
   if(S.mode==='ai'&&S.turn===2){ setTimeout(aiMove,420); }
+  else if(isGptTurn()){ gptMove(); }
   else if(S.auto && S.moves.length>=AUTO_FROM){ coach(); }
+}
+
+async function sbFetch(path,body){
+  const r=await fetch(SB_URL+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({error:'응답 없음'})); if(!r.ok&&!j.error) j.error='HTTP '+r.status; return j;
+}
+async function gptMove(){
+  if(busy||!isGptTurn()) return; busy=true;
+  const t0=Date.now(); S.gptSay='GPT 생각 중… 0초'; render();
+  tick=setInterval(()=>{ S.gptSay='GPT 생각 중… '+Math.round((Date.now()-t0)/1000)+'초'; el('gptSay').textContent=S.gptSay; },500);
+  const history=S.moves.map(m=>COLS[m.x]+(m.y+1));
+  let j; try{ j=await sbFetch('/functions/v1/llm-move',{board:S.board,toMove:S.turn,history,model:{name:S.gpt.name,temperature:S.gpt.temperature,reasoning:S.gpt.reasoning}}); }catch(e){ j={error:String(e)}; }
+  clearInterval(tick); busy=false;
+  if(j.error){ S.gptSay='GPT 연결 실패: '+j.error; render(); return; }
+  S.stats.illegal+=j.illegal||0;
+  if(j.forfeit){ const w=3-S.gpt.color; S.winner=w; S.wins[w]++; S.gptSay='GPT가 두 번 연속 둘 수 없는 자리('+(j.move||'?')+')를 골랐습니다. 몰수패.'; setSay((w===1?'흑':'백')+' 승.'); render(); report(w===1?'black':'white'); return; }
+  S.gptSay='GPT('+(j.ms/1000).toFixed(1)+'초): '+j.move+' — '+(j.reason||'');
+  place(j.x,j.y);
+}
+async function report(result){
+  if(S.mode!=='gpt'||S.reported) return; S.reported=true;
+  const human={key:'human',kind:'human'}, gpt={key:gptKey(),kind:'model',provider:'openai',model:S.gpt.name,config:{temperature:S.gpt.temperature,reasoning:S.gpt.reasoning}};
+  const black=S.gpt.color===1?gpt:human, white=S.gpt.color===1?human:gpt;
+  const stats={illegal:{[gptKey()]:S.stats.illegal},hint:{[gptKey()]:{hits:S.stats.hits,total:S.stats.total},human:{hits:S.stats.hHits,total:S.stats.hTotal}}};
+  let j; try{ j=await sbFetch('/functions/v1/report-game',{gameType:'omok',black,white,moves:S.moves,result,stats}); }catch(e){ j={error:String(e)}; }
+  if(j.ok&&j.rated){ const g=S.gpt.color===1?j.black:j.white; S.gptSay+=`  ·  ${S.gpt.name} Elo ${g.elo} (${g.delta>=0?'+':''}${g.delta})`; render(); }
+  loadLeaderboard();
+}
+async function loadLeaderboard(){
+  let rows; try{ rows=await sbFetch('/rest/v1/leaderboard?game_type=eq.omok&select=player,kind,model,elo,games,wins,losses,draws,illegal_moves,hint_pct&order=elo.desc'); }catch(e){ rows=[]; }
+  const tb=el('lbTable').querySelector('tbody'); tb.innerHTML='';
+  if(!Array.isArray(rows)||!rows.length){ tb.innerHTML='<tr><td colspan="5">아직 기록된 대국이 없습니다. 첫 판을 두세요.</td></tr>'; return; }
+  for(const r of rows){ const tr=document.createElement('tr');
+    const name=r.kind==='human'?'사람':(r.model||r.player);
+    tr.innerHTML=`<td>${name}</td><td>${r.elo}</td><td>${r.wins}승 ${r.losses}패${r.draws?' '+r.draws+'무':''}</td><td>${r.illegal_moves}</td><td>${r.hint_pct==null?'–':r.hint_pct+'%'}</td>`;
+    tb.appendChild(tr); }
 }
 function aiMove(){
   if(S.winner||S.turn!==2) return;
@@ -331,17 +409,19 @@ function coach(){
 }
 function undo(){
   if(!S.moves.length) return;
-  const n=(S.mode==='ai'&&S.moves.length>=2&&S.moves[S.moves.length-1].c===2)?2:1;
+  if(busy) return;
+  const botColor=S.mode==='ai'?2:S.mode==='gpt'?S.gpt.color:0;
+  const n=(botColor&&S.moves.length>=2&&S.moves[S.moves.length-1].c===botColor)?2:1;
   for(let i=0;i<n;i++){ const m=S.moves.pop(); S.board[m.y][m.x]=0; }
   if(S.winner){ S.wins[S.winner]=Math.max(0,S.wins[S.winner]-1); }
   S.winner=0; S.win=null; S.pending=null; S.marks=[];
   S.turn=S.moves.length? 3-S.moves[S.moves.length-1].c : 1;
   setSay('한 수 물렀습니다. '+(S.turn===1?'흑':'백')+' 차례.'); render();
 }
-function newGame(){ const w=S.wins, mode=S.mode, auto=S.auto; S=fresh(); S.wins=w; S.mode=mode; S.auto=auto; render(); }
+function newGame(){ const w=S.wins, mode=S.mode, auto=S.auto, gpt=S.gpt; S=fresh(); S.wins=w; S.mode=mode; S.auto=auto; S.gpt=gpt; render(); if(S.mode==='gpt'){ loadLeaderboard(); if(isGptTurn()) gptMove(); } }
 
 cv.addEventListener('pointerup',e=>{
-  if(S.winner||(S.mode==='ai'&&S.turn===2)) return;
+  if(S.winner||(S.mode==='ai'&&S.turn===2)||isGptTurn()||busy) return;
   const rect=cv.getBoundingClientRect(); const cell=rect.width/N;
   const x=Math.floor((e.clientX-rect.left)/cell), y=Math.floor((e.clientY-rect.top)/cell);
   if(x<0||y<0||x>=N||y>=N||S.board[y][x]) return;
@@ -354,10 +434,15 @@ el('btnNew').addEventListener('click',newGame);
 el('autoCoach').addEventListener('change',e=>{ S.auto=e.target.checked; if(S.auto&&S.moves.length>=AUTO_FROM) coach(); else if(!S.auto){ S.marks=[]; draw(); } });
 el('modePvp').addEventListener('click',()=>{ S.mode='pvp'; newGame(); });
 el('modeAi').addEventListener('click',()=>{ S.mode='ai'; newGame(); });
+el('modeGpt').addEventListener('click',()=>{ S.mode='gpt'; newGame(); });
+el('gptName').addEventListener('change',e=>{ S.gpt.name=e.target.value; });
+el('gptTemp').addEventListener('input',e=>{ S.gpt.temperature=+e.target.value; el('gptTempV').textContent=S.gpt.temperature; });
+el('gptReason').addEventListener('change',e=>{ S.gpt.reasoning=e.target.value; });
+el('gptBlack').addEventListener('change',e=>{ S.gpt.color=e.target.checked?1:2; newGame(); });
 window.addEventListener('resize',draw);
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw); }
 
-function start(data){ S=(data&&data.board)?data:fresh(); render(); if(S.mode==='ai'&&S.turn===2&&!S.winner) setTimeout(aiMove,420); }
+function start(data){ S=(data&&data.board)?data:fresh(); if(!S.gpt) Object.assign(S,{gpt:fresh().gpt,stats:fresh().stats,gptSay:'',reported:false}); render(); if(S.mode==='ai'&&S.turn===2&&!S.winner) setTimeout(aiMove,420); if(S.mode==='gpt'){ loadLeaderboard(); if(isGptTurn()) gptMove(); } }
 window.claude?.hot?.snapshot?.(()=>S);
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
