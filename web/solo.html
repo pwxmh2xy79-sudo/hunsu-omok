@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>맞은편 오목</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 레이아웃: 한 열. 판, 그 아래 맞은편의 말 한 줄, 그 아래 전적과 읽힌 버릇. 폰 우선. */
+:root{
+  --bg:#EDEFF3; --fg:#1B1E25; --muted:#687080; --panel:#FFFFFF; --line:#D4D8E0;
+  --accent:#1E8A69; --accent-ink:#FFFFFF; --warn:#C44A33;
+  --wood:#D9A85F; --wood-dark:#B9843C; --wood-line:#5B3D14;
+  --stone-b1:#5A5B60; --stone-b2:#101012; --stone-w1:#FFFFFF; --stone-w2:#D6D3CB;
+  --display:'Gowun Batang','Noto Serif KR',serif;
+  --body:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14171C; --fg:#E7E9ED; --muted:#98A0AB; --panel:#1D2127; --line:#2C3139;
+    --accent:#3DBE92; --accent-ink:#0C1A14; --warn:#E36D54;
+    --wood:#C4924D; --wood-dark:#9E7030; --wood-line:#3B280D;
+    --stone-b1:#4A4B50; --stone-b2:#0B0B0D; --stone-w1:#F6F4EE; --stone-w2:#C9C6BD;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14171C; --fg:#E7E9ED; --muted:#98A0AB; --panel:#1D2127; --line:#2C3139;
+  --accent:#3DBE92; --accent-ink:#0C1A14; --warn:#E36D54;
+  --wood:#C4924D; --wood-dark:#9E7030; --wood-line:#3B280D;
+  --stone-b1:#4A4B50; --stone-b2:#0B0B0D; --stone-w1:#F6F4EE; --stone-w2:#C9C6BD;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 28px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-size:1.5rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.gameno{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.gameno b{color:var(--fg);font-weight:500}
+.status{display:flex;align-items:center;gap:10px;min-height:28px;font-size:.95rem}
+.stone{width:18px;height:18px;border-radius:50%;flex:none;box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.stone.b{background:radial-gradient(circle at 35% 30%,var(--stone-b1),var(--stone-b2))}
+.stone.w{background:radial-gradient(circle at 35% 30%,var(--stone-w1),var(--stone-w2))}
+.status .hint{color:var(--muted);font-size:.8rem;margin-left:auto}
+.board{width:100%;max-width:100%;aspect-ratio:1/1;border-radius:6px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.25);touch-action:manipulation}
+canvas{display:block;width:100%;height:100%}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.who{display:flex;align-items:center;gap:8px;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.who i{width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block}
+.who i.off{background:var(--line)}
+.who .via{margin-left:auto;letter-spacing:0;text-transform:none;font-size:.75rem}
+.talk p{margin:0;min-height:1.5em;font-size:1.05rem;font-family:var(--display);line-height:1.55}
+.talk p.think{color:var(--muted);font-family:var(--body);font-size:.9rem}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button.btn{font:inherit;font-size:.9rem;padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+button.btn.main{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
+button.btn:disabled{opacity:.45;cursor:default}
+.rec{display:flex;flex-direction:column;gap:8px}
+.dots{display:flex;flex-wrap:wrap;gap:4px}
+.dots i{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--fg);display:inline-block}
+.dots i.me{background:var(--fg)}
+.dots i.draw{border-style:dashed}
+.dots i.cur{border-color:var(--accent);border-style:dotted}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.85rem;color:var(--muted)}
+.kv b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}
+details{font-size:.85rem;color:var(--muted)}
+summary{cursor:pointer;color:var(--fg)}
+.set{display:grid;grid-template-columns:auto 1fr auto;gap:8px 10px;align-items:center;margin-top:8px}
+.set input[type=range]{width:100%;accent-color:var(--accent)}
+.set input[type=number]{font:inherit;width:4.5em;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:3px 6px}
+.set b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums;min-width:3em;text-align:right}
+button:focus-visible,canvas:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){ .talk p{transition:color .2s} }
+</style>
+<style>html,body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} [hidden]{display:none!important}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>맞은편 오목</h1>
+    <span class="gameno"><b id="gameNo">1</b>번째 판 · 나 <b id="wMe">0</b> : <b id="wAi">0</b> 맞은편</span>
+  </header>
+
+  <div class="status">
+    <span class="stone b" id="turnStone"></span>
+    <span id="turnText">내 차례</span>
+    <span class="hint" id="tapHint">같은 자리 두 번 누르면 착수</span>
+  </div>
+
+  <div class="board"><canvas id="cv" tabindex="0" aria-label="오목판 15줄"></canvas></div>
+
+  <section class="card talk" aria-live="polite">
+    <div class="who"><i id="talkDot"></i>맞은편<span class="via" id="via"></span></div>
+    <p id="say">앉으세요. 흑이 먼저입니다.</p>
+    <div class="row">
+      <button class="btn main" id="btnNew">새 판</button>
+      <button class="btn" id="btnResign">기권</button>
+    </div>
+  </section>
+
+  <section class="card rec">
+    <div class="who"><i class="off"></i>전적</div>
+    <div class="dots" id="dots"></div>
+    <div class="kv" id="kv"></div>
+    <details>
+      <summary>맞은편의 규칙</summary>
+      <div class="set">
+        <span>봐주는 판</span><input type="range" id="setGrace" min="0" max="30" step="1" value="10"><b id="vGrace">10판</b>
+        <span>그 뒤 맞은편 승률</span><input type="range" id="setTarget" min="0" max="100" step="5" value="30"><b id="vTarget">30%</b>
+        <span>내 돌</span><span><label><input type="radio" name="col" value="1" id="colB" checked> 흑(먼저)</label> &nbsp; <label><input type="radio" name="col" value="2" id="colW"> 백</label></span><span></span>
+      </div>
+      <div class="row" style="margin-top:10px"><button class="btn" id="btnReset">기록 지우기</button></div>
+    </details>
+  </section>
+</div>
+
+<script>
+// 오목 엔진 + 훈수 분석 (순수 로직, UI 없음)
+const N = 15;
+const DIRS = [[1,0],[0,1],[1,1],[1,-1]];
+const PATS = [
+  {n:'five',  v:1000000, p:['xxxxx']},
+  {n:'open4', v:100000,  p:['_xxxx_']},
+  {n:'four',  v:10000,   p:['xxxx_','_xxxx','xxx_x','x_xxx','xx_xx']},
+  {n:'open3', v:8000,    p:['__xxx_','_xxx__','_xx_x_','_x_xx_']},
+  {n:'three', v:500,     p:['xxx__','__xxx','_xxx_','xx_x_','_xx_x','x_xx_','_x_xx','xx__x','x__xx','x_x_x']},
+  {n:'open2', v:300,     p:['__xx__','_x_x_','_x__x_']},
+  {n:'two',   v:50,      p:['xx_','_xx','x_x']},
+  {n:'one',   v:10,      p:['x']},
+];
+const KO = {five:'다섯', open4:'열린 사', four:'사', open3:'열린 삼', three:'삼', open2:'열린 이', two:'이', one:''};
+
+function inb(i,j){ return i>=0 && j>=0 && i<N && j<N; }
+function emptyBoard(){ return Array.from({length:N},()=>Array(N).fill(0)); }
+
+function lineStr(b,x,y,dx,dy,c){
+  let s='';
+  for(let k=-4;k<=4;k++){
+    if(k===0){ s+='x'; continue; }
+    const i=x+k*dx, j=y+k*dy;
+    if(!inb(i,j)) s+='o';
+    else { const v=b[j][i]; s += v===0?'_' : v===c?'x':'o'; }
+  }
+  return s;
+}
+function bestPat(s){
+  for(const pat of PATS){
+    for(const p of pat.p){
+      const L=p.length;
+      for(let i=0;i+L<=9;i++){
+        if(i<=4 && i+L>4 && s.substr(i,L)===p) return pat;
+      }
+    }
+  }
+  return null;
+}
+function analyze(b,x,y,c){
+  const r={names:[],score:0,fours:0,open3:0,has:{},combo:''};
+  for(const [dx,dy] of DIRS){
+    const p=bestPat(lineStr(b,x,y,dx,dy,c));
+    if(!p) continue;
+    r.names.push(p.n); r.score+=p.v; r.has[p.n]=true;
+    if(p.n==='four'||p.n==='open4') r.fours++;
+    if(p.n==='open3') r.open3++;
+  }
+  if(r.fours>=2){ r.score+=100000; r.combo='사사'; }
+  else if(r.fours>=1 && r.open3>=1){ r.score+=50000; r.combo='사삼'; }
+  else if(r.open3>=2){ r.score+=30000; r.combo='삼삼'; }
+  return r;
+}
+function scoreMove(b,x,y,me){
+  const a=analyze(b,x,y,me), d=analyze(b,x,y,3-me);
+  return {x,y,a,d,score:a.score + d.score*0.85};
+}
+function candidates(b){
+  const set=new Set(); let any=false;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    if(!b[y][x]) continue; any=true;
+    for(let j=-2;j<=2;j++)for(let i=-2;i<=2;i++){
+      const X=x+i,Y=y+j;
+      if(inb(X,Y)&&!b[Y][X]) set.add(Y*N+X);
+    }
+  }
+  if(!any) return [[7,7]];
+  return [...set].map(k=>[k%N,Math.floor(k/N)]);
+}
+function bestMoves(b,me,limit){
+  const list=candidates(b).map(([x,y])=>scoreMove(b,x,y,me));
+  list.sort((p,q)=>q.score-p.score);
+  return limit?list.slice(0,limit):list;
+}
+function winLine(b,x,y){
+  const c=b[y][x]; if(!c) return null;
+  for(const [dx,dy] of DIRS){
+    const cells=[[x,y]];
+    for(const sgn of [1,-1]){
+      let i=x+sgn*dx,j=y+sgn*dy;
+      while(inb(i,j)&&b[j][i]===c){ cells.push([i,j]); i+=sgn*dx; j+=sgn*dy; }
+    }
+    if(cells.length>=5) return cells;
+  }
+  return null;
+}
+
+// ----- 훈수꾼의 말 -----
+function colorName(c){ return c===1?'흑':'백'; }
+function describe(mv, me){
+  const a=mv.a, d=mv.d, opp=colorName(3-me);
+  if(a.has.five) return '여기면 다섯. 끝내세요.';
+  if(d.has.five) return `${opp} 사가 섰어요. 여기를 안 막으면 다음 수에 집니다.`;
+  if(a.combo==='사사') return '사사. 사가 둘 동시에 서서 막을 수 없습니다.';
+  if(a.has.open4) return '열린 사. 양쪽을 다 막을 수는 없습니다.';
+  if(a.combo==='사삼') return '사삼. 사를 막는 사이 삼이 열린 사로 자랍니다.';
+  if(d.combo==='사사'||d.has.open4) return `${opp} 열린 삼의 급소. 놔두면 열린 사가 됩니다.`;
+  if(a.combo==='삼삼') return '삼삼. 열린 삼이 둘 생겨 한쪽은 못 막습니다.';
+  if(a.has.open3 && d.has.four) return `열린 삼을 만들면서 ${opp} 삼의 길목도 막습니다.`;
+  if(a.has.open3) return '열린 삼. 상대가 응수해야 합니다.';
+  if(a.has.four) return '사를 만들어 한 수를 강제합니다.';
+  if(d.combo==='사삼'||d.combo==='삼삼') return `${opp}이 ${d.combo}을 만들 자리. 먼저 앉아야 합니다.`;
+  if(d.has.four) return `${opp} 삼이 자라는 길목입니다.`;
+  if(a.has.three && a.names.filter(n=>n==='three').length>=2) return '삼이 둘 겹치는 자리. 다음 수에 열립니다.';
+  if(a.has.three||a.has.open2) return '돌이 서로 이어지는 자리. 길이 여럿 열립니다.';
+  return '모양을 넓히는 자리. 가운데 쪽이 길이 많습니다.';
+}
+function rateMove(best, played, me, who){
+  const opp=colorName(3-me), p=who?who+': ':'';
+  if(best.a.has.five && !played.a.has.five) return who?`${who}: 다섯을 만들 자리를 지나쳤습니다.`:'다섯을 만들 자리가 있었어요.';
+  if(best.d.has.five && !(played.d.has.five||played.a.has.five)) return who?`${who}: ${opp} 사를 안 막았습니다. 다음 수가 위험합니다.`:`${opp} 사를 두고 다른 데 두셨네요. 다음 수가 위험합니다.`;
+  if(played.score>=best.score*0.95) return p+'좋은 수. '+describe(played,me);
+  if(played.score>=best.score*0.5) return p+'무난합니다.';
+  return who?`${who}: 더 큰 자리를 놓쳤습니다.`:'더 큰 자리가 있었어요. 훈수를 눌러 보세요.';
+}
+function situation(b, next){
+  // next 차례인 사람에게 지금 판의 위협을 한 줄로
+  const top=bestMoves(b,next,1)[0]; if(!top) return '';
+  const opp=colorName(3-next), me=colorName(next);
+  if(top.a.has.five) return `${me}, 다섯이 보입니다.`;
+  if(top.d.has.five) return `${opp} 사가 서 있습니다. ${me}은 막아야 합니다.`;
+  if(top.a.has.open4||top.a.combo) return `${me}에게 결정적인 수가 있습니다.`;
+  if(top.d.has.open4) return `${opp} 열린 삼. ${me}이 지금 막지 않으면 열린 사가 됩니다.`;
+  return '';
+}
+
+
+</script>
+<script>
+(function(){
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const el=id=>document.getElementById(id);
+const SB_URL='https://fyrtbxbgvsqoiaktkkcx.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5cnRieGJndnNxb2lha3Rra2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwODc5NzksImV4cCI6MjEwOTY2Mzk3OX0.NH-NjK8_LE1kFSlWmx-7nJLDUoR5XD8_4_Pi59NPe5k';
+const LS='matunpyeon-omok-v1';
+const DIRN=['가로','세로','대각선 ↘','대각선 ↗'];
+
+// ---------- 저장되는 것: 판 기록과 규칙 ----------
+let R=loadRec();
+function loadRec(){ try{ const j=JSON.parse(localStorage.getItem(LS)||'null'); if(j&&Array.isArray(j.games)) return j; }catch(e){} return {games:[],grace:10,target:30,myColor:1}; }
+function saveRec(){ try{ localStorage.setItem(LS,JSON.stringify(R)); }catch(e){} }
+
+// ---------- 한 판의 상태 ----------
+let S, busy=false, sampleFn=undefined;
+function fresh(){
+  return {board:emptyBoard(),moves:[],turn:1,winner:0,win:null,pending:null,me:R.myColor,ai:3-R.myColor,
+    intent:decideIntent(), tStart:Date.now(), tLast:Date.now(),
+    st:{first:null,dirs:[0,0,0,0],attack:0,defend:0,think:[],open3:0,fours:0,winDir:null},
+    say:'앉으세요. 흑이 먼저입니다.', think:false, said:{start:false,mid:false,end:false}, counted:false};
+}
+function gameNo(){ return R.games.length+1; }
+function decideIntent(){
+  const n=R.games.length;
+  if(n<R.grace) return 'lose';
+  const T=R.target/100;
+  const after=R.games.slice(R.grace).slice(-20);
+  if(!after.length) return Math.random()<T?'try':'lose';
+  const rate=after.filter(g=>g.result==='ai').length/after.length;
+  const p=Math.min(0.95,Math.max(0.05, T + 2*(T-rate)));
+  return Math.random()<p?'try':'lose';
+}
+
+// ---------- 그리기 ----------
+function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function draw(){
+  const rect=cv.getBoundingClientRect(); const W=rect.width||360, dpr=window.devicePixelRatio||1;
+  if(cv.width!==Math.round(W*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(W*dpr); }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const cell=W/N, o=cell/2, r=cell*0.44;
+  const g=ctx.createLinearGradient(0,0,W,W); g.addColorStop(0,css('--wood')); g.addColorStop(1,css('--wood-dark'));
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,W);
+  ctx.strokeStyle='rgba(60,35,5,.08)'; ctx.lineWidth=1;
+  for(let i=0;i<18;i++){ ctx.beginPath(); const y=(i*W/17)+Math.sin(i)*6; ctx.moveTo(0,y); ctx.bezierCurveTo(W*.3,y+8,W*.6,y-8,W,y+3); ctx.stroke(); }
+  ctx.strokeStyle=css('--wood-line'); ctx.lineWidth=1;
+  for(let i=0;i<N;i++){ const p=o+i*cell;
+    ctx.beginPath(); ctx.moveTo(o,p); ctx.lineTo(W-o,p); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p,o); ctx.lineTo(p,W-o); ctx.stroke(); }
+  ctx.fillStyle=css('--wood-line');
+  for(const [x,y] of [[3,3],[3,11],[7,7],[11,3],[11,11]]){ ctx.beginPath(); ctx.arc(o+x*cell,o+y*cell,cell*0.09,0,Math.PI*2); ctx.fill(); }
+  const stone=(x,y,c,alpha)=>{
+    const cx=o+x*cell, cy=o+y*cell;
+    ctx.save(); ctx.globalAlpha=alpha;
+    ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=cell*0.18; ctx.shadowOffsetY=cell*0.06;
+    const rg=ctx.createRadialGradient(cx-r*0.35,cy-r*0.4,r*0.1,cx,cy,r);
+    if(c===1){ rg.addColorStop(0,css('--stone-b1')); rg.addColorStop(1,css('--stone-b2')); }
+    else { rg.addColorStop(0,css('--stone-w1')); rg.addColorStop(1,css('--stone-w2')); }
+    ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.restore();
+  };
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){ if(S.board[y][x]) stone(x,y,S.board[y][x],1); }
+  const last=S.moves[S.moves.length-1];
+  if(last){ ctx.fillStyle=last.c===1?css('--stone-w1'):css('--stone-b2'); ctx.beginPath(); ctx.arc(o+last.x*cell,o+last.y*cell,cell*0.1,0,Math.PI*2); ctx.fill(); }
+  if(S.pending && !S.winner) stone(S.pending[0],S.pending[1],S.turn,0.45);
+  if(S.win){ const a=S.win[0]; const far=S.win.reduce((m,p)=>{const d=Math.hypot(p[0]-a[0],p[1]-a[1]); return d>m.d?{d,p}:m;},{d:0,p:a}).p;
+    ctx.strokeStyle=css('--warn'); ctx.lineWidth=cell*0.12; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(o+a[0]*cell,o+a[1]*cell); ctx.lineTo(o+far[0]*cell,o+far[1]*cell); ctx.stroke(); }
+}
+
+// ---------- 화면 ----------
+function setSay(t,think){ S.say=t; S.think=!!think; el('say').textContent=t; el('say').classList.toggle('think',!!think); }
+function render(){
+  el('gameNo').textContent=gameNo();
+  el('wMe').textContent=R.games.filter(g=>g.result==='me').length; el('wAi').textContent=R.games.filter(g=>g.result==='ai').length;
+  el('turnStone').className='stone '+(S.turn===1?'b':'w');
+  el('turnText').textContent=S.winner? (S.winner===S.me?'내가 이겼다':S.winner===S.ai?'맞은편이 이겼다':'무승부') : (S.turn===S.me?'내 차례':'맞은편 차례');
+  el('tapHint').hidden=!!S.winner||S.turn!==S.me;
+  el('btnResign').disabled=!!S.winner||S.moves.length<2;
+  el('say').textContent=S.say; el('say').classList.toggle('think',S.think);
+  el('talkDot').className=busy?'':'';
+  el('vGrace').textContent=R.grace+'판'; el('vTarget').textContent=R.target+'%';
+  el('setGrace').value=R.grace; el('setTarget').value=R.target; el('colB').checked=R.myColor===1; el('colW').checked=R.myColor===2;
+  renderRec(); draw();
+}
+function renderRec(){
+  const d=el('dots'); d.innerHTML='';
+  R.games.forEach(g=>{ const i=document.createElement('i'); i.className=g.result==='me'?'me':g.result==='draw'?'draw':''; i.title=g.result==='me'?'승':g.result==='ai'?'패':'무'; d.appendChild(i); });
+  if(!S.winner){ const i=document.createElement('i'); i.className='cur'; d.appendChild(i); }
+  const P=patterns(); const kv=el('kv'); kv.innerHTML='';
+  const rows=[];
+  const n=R.games.length;
+  if(n){ const recent=R.games.slice(-10); rows.push(['최근 승률', Math.round(100*recent.filter(g=>g.result==='me').length/recent.length)+'% ('+recent.length+'판)']); }
+  if(P.games){ rows.push(['첫 수 버릇',P.first]); rows.push(['좋아하는 줄',P.dir]); rows.push(['공격 : 수비',P.ad]); rows.push(['한 수 생각',P.think]); rows.push(['판 길이',P.len]); }
+  else rows.push(['읽힌 버릇','아직 없음. 한 판 두면 생깁니다.']);
+  for(const [k,v] of rows){ const a=document.createElement('span'); a.textContent=k; const b=document.createElement('b'); b.textContent=v; kv.append(a,b); }
+}
+function patterns(){
+  const gs=R.games.filter(g=>g.st); if(!gs.length) return {games:0};
+  const cnt=(arr)=>arr.reduce((m,v)=>{m[v]=(m[v]||0)+1;return m;},{});
+  const firsts=cnt(gs.map(g=>g.st.first||'?')); const fk=Object.keys(firsts).sort((a,b)=>firsts[b]-firsts[a])[0];
+  const dirs=[0,0,0,0]; gs.forEach(g=>g.st.dirs.forEach((v,i)=>dirs[i]+=v)); const dsum=dirs.reduce((a,b)=>a+b,0)||1; const di=dirs.indexOf(Math.max(...dirs));
+  const at=gs.reduce((a,g)=>a+g.st.attack,0), de=gs.reduce((a,g)=>a+g.st.defend,0);
+  const th=gs.flatMap(g=>g.st.think); const avgTh=th.length?th.reduce((a,b)=>a+b,0)/th.length:0;
+  const len=gs.reduce((a,g)=>a+g.moves,0)/gs.length;
+  const wins=gs.filter(g=>g.result==='me'&&g.st.winDir!=null); const wd=cnt(wins.map(g=>g.st.winDir)); const wk=Object.keys(wd).sort((a,b)=>wd[b]-wd[a])[0];
+  return {games:gs.length,
+    first:`${fk} (${Math.round(100*firsts[fk]/gs.length)}%)`,
+    dir:`${DIRN[di]} ${Math.round(100*dirs[di]/dsum)}%`+(wk!=null?` · 이길 때는 ${DIRN[wk]}`:''),
+    ad:`${Math.round(100*at/((at+de)||1))} : ${Math.round(100*de/((at+de)||1))}`,
+    think:(avgTh/1000).toFixed(1)+'초', len:Math.round(len)+'수',
+    raw:{firsts,dirs,at,de,avgTh,len,winDirs:wd}};
+}
+
+// ---------- 버릇 읽기 ----------
+function firstLabel(x,y){ const d=Math.max(Math.abs(x-7),Math.abs(y-7)); return d===0?'천원':d===1?'천원 옆':d<=3?'중앙권':'변 쪽'; }
+function lineDir(b,x,y,c){ let best=0,bi=0; DIRS.forEach(([dx,dy],i)=>{ let n=1; for(const s of [1,-1]){ let i2=x+s*dx,j=y+s*dy; while(i2>=0&&j>=0&&i2<N&&j<N&&b[j][i2]===c){n++; i2+=s*dx; j+=s*dy;} } if(n>best){best=n;bi=i;} }); return best>=2?bi:null; }
+function noteMyMove(x,y,played){
+  const st=S.st, myMoves=S.moves.filter(m=>m.c===S.me).length;
+  if(myMoves===1) st.first=firstLabel(x,y);
+  const di=lineDir(S.board,x,y,S.me); if(di!=null) st.dirs[di]++;
+  if(played.d.score>played.a.score&&played.d.score>=500) st.defend++; else st.attack++;
+  if(played.a.has.open3) st.open3++; if(played.a.has.four||played.a.has.open4) st.fours++;
+  st.think.push(Date.now()-S.tLast);
+}
+
+// ---------- 맞은편의 수 ----------
+function deep(board,me,list,k){
+  // 2수 읽기: 내 후보를 둔 뒤 상대가 "자기 모양"으로 얻을 수 있는 최대치를 뺀다.
+  // 내가 사를 만들면 상대는 막는 수밖에 없으므로 그 자리에서 얻는 것만 센다.
+  const opp=3-me; const out=[];
+  for(const m of list.slice(0,k)){
+    if(m.a.has.five){ out.push({...m,deep:1e9}); continue; }
+    board[m.y][m.x]=me;
+    let replies=bestMoves(board,opp);
+    const forced=replies.filter(r=>r.d.has.five); if(forced.length) replies=forced;
+    const threat=replies.length?Math.max(...replies.slice(0,8).map(r=>r.a.score)):0;
+    board[m.y][m.x]=0;
+    out.push({...m,deep:m.score-0.8*threat});
+  }
+  out.sort((p,q)=>q.deep-p.deep); return out;
+}
+function aiPick(){
+  const b=S.board, ai=S.ai; const list=bestMoves(b,ai); if(!list.length) return null;
+  if(S.intent==='try'){
+    const d=deep(b,ai,list,10); const top=d[0];
+    const pool=d.filter(m=>m.deep>=top.deep-Math.max(50,Math.abs(top.deep)*0.05)); return pool[Math.floor(Math.random()*pool.length)];
+  }
+  // 봐주기: 이기는 수는 두지 않고, 막을지 말지는 주사위. 모양은 그럴듯하게.
+  const safe=list.filter(m=>!m.a.has.five&&!m.a.has.open4&&!m.a.combo);
+  const cand=safe.length?safe:list.filter(m=>!m.a.has.five);
+  if(!cand.length) return list[list.length-1];
+  const mustBlock=cand.find(m=>m.d.has.five); if(mustBlock&&Math.random()<0.65) return mustBlock;
+  const three=cand.find(m=>m.d.has.open4); if(three&&Math.random()<0.45) return three;
+  const quiet=cand.filter(m=>!m.d.has.five).slice(1,6); const pool=quiet.length?quiet:cand.slice(0,3);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function aiMove(){
+  if(S.winner||S.turn!==S.ai) return;
+  const m=aiPick(); if(!m) return;
+  place(m.x,m.y);
+}
+
+// ---------- 착수 ----------
+function place(x,y){
+  if(S.winner||S.board[y][x]) return;
+  const me=S.turn; const list=bestMoves(S.board,me); const played=list.find(m=>m.x===x&&m.y===y)||scoreMove(S.board,x,y,me);
+  if(me===S.me) noteMyMove(x,y,played);
+  S.board[y][x]=me; S.moves.push({x,y,c:me}); S.pending=null;
+  const line=winLine(S.board,x,y);
+  if(line){ S.winner=me; S.win=line; if(me===S.me) S.st.winDir=lineDir(S.board,x,y,me); finish(me===S.me?'me':'ai'); return; }
+  if(S.moves.length===N*N){ S.winner=3; finish('draw'); return; }
+  S.turn=3-me; S.tLast=Date.now(); render();
+  if(S.turn===S.ai){ setTimeout(aiMove,380+Math.random()*500); }
+  else { const myN=S.moves.filter(m=>m.c===S.me).length; if(myN===6&&!S.said.mid){ S.said.mid=true; talk('mid'); } }
+}
+function finish(result){
+  if(!S.counted){ S.counted=true;
+    R.games.push({result,moves:S.moves.length,intent:S.intent,st:S.st,at:Date.now(),record:S.moves.map(m=>'ABCDEFGHIJKLMNO'[m.x]+(m.y+1)).join(' ')});
+    saveRec(); }
+  render(); talk('end',result);
+}
+function resign(){ if(S.winner||S.moves.length<2) return; S.winner=S.ai; finish('ai'); }
+function newGame(){ S=fresh(); render(); if(S.turn===S.ai) setTimeout(aiMove,500); talk('start'); }
+
+// ---------- 맞은편의 말 ----------
+function fallbackLine(kind,result){
+  const n=gameNo(), P=patterns();
+  if(kind==='start'){ if(n===1) return '앉으세요. 흑이 먼저입니다.'; if(n<=R.grace) return `${n}번째 판. 지난 판은 ${P.dir?.split(' ')[0]||'그 줄'}로 가셨죠.`; return `${n}번째 판. 오늘은 저도 좀 두겠습니다.`; }
+  if(kind==='mid'){ return P.games?`또 ${P.dir.split(' ')[0]}입니까.`:'서두르지 않으시네요.'; }
+  if(result==='me') return n<=R.grace?'잘 두셨습니다. 다음 판도 봐 드리죠. 아니, 보겠습니다.':'이번엔 제가 졌습니다.';
+  if(result==='ai') return '이런 날도 있습니다.';
+  return '꽉 찼네요.';
+}
+async function askClaude(prompt){
+  // 1) 아티팩트 안: 보는 사람의 클로드  2) 파일·앱: 서버 함수(ANTHROPIC_API_KEY)
+  if(sampleFn===undefined){ try{ sampleFn=window.claude?.use?await Promise.race([window.claude.use('sample'),new Promise(r=>setTimeout(()=>r(null),4000))]):null; }catch(e){ sampleFn=null; } }
+  if(sampleFn){ el('via').textContent='Claude'; const j=await sampleFn.json(prompt,{modelTier:'quick',cache:false}); return String(j?.say||'').trim(); }
+  el('via').textContent='Claude (서버)';
+  const r=await fetch(SB_URL+'/functions/v1/omok-talk',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:JSON.stringify({prompt})});
+  const j=await r.json(); if(j.error) throw new Error(j.error); return String(j.say||'').trim();
+}
+function buildPrompt(kind,result){
+  const n=gameNo()-(kind==='end'?1:0), P=patterns(), grace=n<=R.grace;
+  const rec=R.games.slice(-8).map((g,i)=>`${R.games.length-R.games.slice(-8).length+i+1}판 ${g.result==='me'?'상대 승':g.result==='ai'?'나 승':'무'} ${g.moves}수`).join(', ')||'없음';
+  const stats=P.games?`첫 수: ${P.first}. 좋아하는 줄: ${P.dir}. 공격:수비 = ${P.ad}. 한 수 생각 평균 ${P.think}. 판 길이 평균 ${P.len}.`:'아직 없음.';
+  const now=`이번 판 지금까지: 내 수 ${S.moves.filter(m=>m.c===S.ai).length}, 상대 수 ${S.moves.filter(m=>m.c===S.me).length}. 상대의 이번 판 버릇: 첫 수 ${S.st.first||'-'}, 줄 ${S.st.dirs.map((v,i)=>v?DIRN[i]+v:'').filter(Boolean).join('/')||'-'}, 공격 ${S.st.attack} 수비 ${S.st.defend}, 열린 삼 ${S.st.open3}번.`;
+  const phase=grace?`지금은 ${R.grace}판까지 상대를 지켜보며 져 주는 기간입니다. 져 주고 있다는 사실은 어떤 식으로도 내비치지 않습니다. 대신 상대의 버릇을 하나씩 짚습니다.`:`이제 ${R.grace}판이 지났고 당신은 진짜로 둡니다. 말투가 조금 더 서늘해져도 됩니다.`;
+  const ask=kind==='start'?`${n}번째 판이 시작됩니다. 앉은 상대에게 건넬 첫 한마디.`:kind==='mid'?`판 중간입니다. 지금 상대 수를 보고 흘리듯 한마디.`:`판이 끝났습니다. 결과: ${result==='me'?'상대 승':result==='ai'?'내 승':'무승부'}, ${S.moves.length}수. 기보: ${S.moves.map(m=>'ABCDEFGHIJKLMNO'[m.x]+(m.y+1)).join(' ')}. 판을 덮으며 한마디.`;
+  return `당신은 오목판 맞은편에 앉은 사람입니다. 이름은 없습니다. 말수가 적고 관찰이 정확합니다. 존댓말. 한 문장, 길어야 두 문장. 이모지·감탄사·따옴표 없음. 수를 가르치거나 좌표를 말하지 않습니다. 상대의 버릇을 사실로 짚되 평가하지 않습니다. 같은 말을 반복하지 않습니다.
+${phase}
+전적(최근): ${rec}
+읽힌 버릇(누적): ${stats}
+${now}
+${ask}
+JSON으로만 답합니다: {"say":"..."}`;
+}
+async function talk(kind,result){
+  if(S.said[kind]&&kind!=='mid') return; S.said[kind]=true;
+  const snap=S; setSay(kind==='end'?'…':'…',true);
+  let line='';
+  try{ line=await askClaude(buildPrompt(kind,result)); }catch(e){ line=''; el('via').textContent=''; }
+  if(snap!==S) return;
+  setSay(line||fallbackLine(kind,result),false);
+}
+
+// ---------- 입력 ----------
+cv.addEventListener('pointerup',e=>{
+  if(S.winner||S.turn!==S.me) return;
+  const rect=cv.getBoundingClientRect(); const cell=rect.width/N;
+  const x=Math.floor((e.clientX-rect.left)/cell), y=Math.floor((e.clientY-rect.top)/cell);
+  if(x<0||y<0||x>=N||y>=N||S.board[y][x]) return;
+  if(S.pending&&S.pending[0]===x&&S.pending[1]===y) place(x,y);
+  else { S.pending=[x,y]; draw(); }
+});
+el('btnNew').addEventListener('click',()=>{ if(!S.winner&&S.moves.length>=2&&!S.counted){ /* 중간에 접은 판은 세지 않는다 */ } newGame(); });
+el('btnResign').addEventListener('click',resign);
+el('btnReset').addEventListener('click',()=>{ R.games=[]; saveRec(); newGame(); });
+el('setGrace').addEventListener('input',e=>{ R.grace=+e.target.value; el('vGrace').textContent=R.grace+'판'; saveRec(); });
+el('setTarget').addEventListener('input',e=>{ R.target=+e.target.value; el('vTarget').textContent=R.target+'%'; saveRec(); });
+el('colB').addEventListener('change',()=>{ R.myColor=1; saveRec(); newGame(); });
+el('colW').addEventListener('change',()=>{ R.myColor=2; saveRec(); newGame(); });
+window.addEventListener('resize',draw);
+if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw); }
+
+function start(data){
+  if(data&&data.board&&data.st){ S=data; render(); if(S.turn===S.ai&&!S.winner) setTimeout(aiMove,500); }
+  else newGame();
+}
+window.claude?.hot?.snapshot?.(()=>S);
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>

@@ -58,3 +58,12 @@ npx cap open android  # Android Studio
 - `supabase/functions/report-game` — 판이 끝나면 기록하고 (훈수꾼, 종목)별 Elo·불법수·적중을 갱신.
 - 테이블: `players`, `games`, `ratings`, 뷰 `leaderboard`. 읽기는 공개, 쓰기는 서버 함수만.
 - 비밀값: Edge Functions Secrets에 `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`.
+
+## 맞은편 오목 (`web/solo.html`)
+
+혼자 두는 판. 맞은편(AI)은 수를 엔진으로 두고, 말은 Claude가 한다.
+
+- 처음 N판(기본 10)은 **봐주기**: 이기는 수를 두지 않고, 막을지 말지는 주사위. 그동안 상대의 버릇(첫 수·좋아하는 줄·공격:수비·생각 시간·판 길이)을 읽는다.
+- 그 뒤로는 판마다 **전력 / 봐주기**를 뽑는다. 뽑는 확률은 목표 승률(기본 맞은편 30%)과 최근 실제 승률의 차이로 매 판 보정된다. 전력일 때는 2수 읽기.
+- Claude의 말: 판 시작·중간(내 6수째)·끝, 한 판에 세 번. 아티팩트 안에서는 보는 사람의 Claude(`sample`), 파일·앱에서는 `supabase/functions/omok-talk`(`ANTHROPIC_API_KEY`). 둘 다 없으면 엔진이 만든 한 줄.
+- 기록은 브라우저(localStorage)에 남는다. "맞은편의 규칙"에서 봐주는 판 수·목표 승률·내 돌 색을 바꾼다.
