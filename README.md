@@ -61,9 +61,15 @@ npx cap open android  # Android Studio
 
 ## 맞은편 오목 (`web/solo.html`)
 
-혼자 두는 판. 맞은편(AI)은 수를 엔진으로 두고, 말은 Claude가 한다.
+혼자 두는 판. 말 없음. 맞은편은 조용히 둔다.
 
 - 처음 N판(기본 10)은 **봐주기**: 이기는 수를 두지 않고, 막을지 말지는 주사위. 그동안 상대의 버릇(첫 수·좋아하는 줄·공격:수비·생각 시간·판 길이)을 읽는다.
-- 그 뒤로는 판마다 **전력 / 봐주기**를 뽑는다. 뽑는 확률은 목표 승률(기본: 내가 10판 중 3판)과 최근 실제 승률의 차이로 매 판 보정된다. 전력일 때는 2수 읽기.
-- Claude의 말: 판 시작·중간(내 6수째)·끝, 한 판에 세 번. 아티팩트 안에서는 보는 사람의 Claude(`sample`), 파일·앱에서는 `supabase/functions/omok-talk`(`ANTHROPIC_API_KEY`). 둘 다 없으면 엔진이 만든 한 줄.
-- 기록은 브라우저(localStorage)에 남는다. "맞은편의 규칙"에서 봐주는 판 수·목표 승률·내 돌 색을 바꾼다.
+- 그 뒤로는 판마다 **전력 / 봐주기**를 뽑는다. 뽑는 확률은 목표(기본: 내가 10판 중 3판)와 최근 실제 승률의 차이로 매 판 보정된다.
+- 전력일 때 수는 **Claude**가 고른다(버릇 요약과 엔진 후보를 함께 보여 줌). 다섯을 만들거나 막아야 하는 자리는 엔진이 그대로 둔다. 둘 수 없는 자리를 고르거나 응답이 없으면 엔진의 2수 읽기.
+- Claude 경로: 아티팩트 안에서는 보는 사람의 Claude, 그 밖(링크·파일·앱)에서는 `supabase/functions/llm-move`의 anthropic(`ANTHROPIC_API_KEY`).
+- 기록은 브라우저(localStorage)에 남는다. "맞은편의 규칙"에서 봐주는 판 수·내 승률·내 돌 색을 바꾼다.
+
+### 카톡으로 보내는 주소
+
+`.github/workflows/pages.yml`이 `web/`을 GitHub Pages로 올린다. 저장소 Settings → Pages → Source를 **GitHub Actions**로 한 번 바꾸면, 다음부터 `main`에 올릴 때마다
+`https://<계정>.github.io/hunsu-omok/solo.html` 이 갱신된다. 이 주소를 카톡으로 보내면 된다.

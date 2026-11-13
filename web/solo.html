@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>맞은편 오목</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
@@ -54,8 +53,6 @@ canvas{display:block;width:100%;height:100%}
 .who i{width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block}
 .who i.off{background:var(--line)}
 .who .via{margin-left:auto;letter-spacing:0;text-transform:none;font-size:.75rem}
-.talk p{margin:0;min-height:1.5em;font-size:1.25rem;font-family:var(--display);line-height:1.55}
-.talk p.think{color:var(--muted);font-family:var(--body);font-size:.9rem}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 button.btn{font:inherit;font-size:1.05rem;padding:13px 20px;border-radius:12px;min-height:48px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
 button.btn.main{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
@@ -96,14 +93,10 @@ button:focus-visible,canvas:focus-visible,summary:focus-visible{outline:2px soli
 
   <div class="board"><canvas id="cv" tabindex="0" aria-label="오목판 15줄"></canvas></div>
 
-  <section class="card talk" aria-live="polite">
-    <div class="who"><i id="talkDot"></i>맞은편<span class="via" id="via" hidden></span></div>
-    <p id="say">앉으세요. 먼저 두시지요.</p>
-    <div class="row">
-      <button class="btn main" id="btnNew">새 판</button>
-      <button class="btn" id="btnResign">기권</button>
-    </div>
-  </section>
+  <div class="row">
+    <button class="btn main" id="btnNew">새 판</button>
+    <button class="btn" id="btnResign">기권</button>
+  </div>
 
   <section class="card rec">
     <div class="who"><i class="off"></i>전적</div>
@@ -115,8 +108,6 @@ button:focus-visible,canvas:focus-visible,summary:focus-visible{outline:2px soli
         <span>봐주는 판</span><input type="range" id="setGrace" min="0" max="30" step="1" value="10"><b id="vGrace">10판</b>
         <span>그 뒤 내 승률</span><input type="range" id="setTarget" min="0" max="100" step="5" value="30"><b id="vTarget">30%</b>
         <span>내 돌</span><span><label><input type="radio" name="col" value="1" id="colB" checked> 흑(먼저)</label> &nbsp; <label><input type="radio" name="col" value="2" id="colW"> 백</label></span><span></span>
-        <span>맞은편이 아는 것</span><textarea id="setNote" rows="2" placeholder="예: 아버지. 일흔 넘으셨고 젊을 때 동네에서 오목 좀 두셨다. 호칭은 어르신."></textarea>
-        <span>첫 판 인사</span><input type="text" id="setGreet" placeholder="예: 아버지, 생신 축하드려요. 열 판만 두어 보세요.">
       </div>
       <div class="row" style="margin-top:10px"><button class="btn" id="btnReset">기록 지우기</button></div>
     </details>
@@ -263,7 +254,7 @@ const DIRN=['가로','세로','대각선 ↘','대각선 ↗'];
 
 // ---------- 저장되는 것: 판 기록과 규칙 ----------
 let R=loadRec();
-function loadRec(){ try{ const j=JSON.parse(localStorage.getItem(LS)||'null'); if(j&&Array.isArray(j.games)){ if(!j.v){ j.target=100-(j.target??30); j.v=2; } return j; } }catch(e){} return {games:[],grace:10,target:30,myColor:1,v:2,note:'',greet:''}; }
+function loadRec(){ try{ const j=JSON.parse(localStorage.getItem(LS)||'null'); if(j&&Array.isArray(j.games)){ if(!j.v){ j.target=100-(j.target??30); j.v=2; } return j; } }catch(e){} return {games:[],grace:10,target:30,myColor:1,v:2}; }
 function saveRec(){ try{ localStorage.setItem(LS,JSON.stringify(R)); }catch(e){} }
 
 // ---------- 한 판의 상태 ----------
@@ -272,7 +263,7 @@ function fresh(){
   return {board:emptyBoard(),moves:[],turn:1,winner:0,win:null,pending:null,me:R.myColor,ai:3-R.myColor,
     intent:decideIntent(), tStart:Date.now(), tLast:Date.now(),
     st:{first:null,dirs:[0,0,0,0],attack:0,defend:0,think:[],open3:0,fours:0,winDir:null},
-    say:(R.myColor===1?'앉으세요. 먼저 두시지요.':'앉으세요. 제가 먼저 두겠습니다.'), think:false, said:{start:false,mid:false,end:false}, counted:false};
+    counted:false};
 }
 function gameNo(){ return R.games.length+1; }
 function decideIntent(){
@@ -322,19 +313,15 @@ function draw(){
 }
 
 // ---------- 화면 ----------
-function setSay(t,think){ S.say=t; S.think=!!think; el('say').textContent=t; el('say').classList.toggle('think',!!think); }
 function render(){
   el('gameNo').textContent=gameNo();
   el('wMe').textContent=R.games.filter(g=>g.result==='me').length; el('wAi').textContent=R.games.filter(g=>g.result==='ai').length;
   el('turnStone').className='stone '+(S.turn===1?'b':'w');
-  el('turnText').textContent=S.winner? (S.winner===S.me?'내가 이겼다':S.winner===S.ai?'맞은편이 이겼다':'무승부') : (S.turn===S.me?'내 차례':'맞은편 차례');
+  el('turnText').textContent=S.winner? (S.winner===S.me?'내가 이겼다':S.winner===S.ai?'맞은편이 이겼다':'무승부') : (S.turn===S.me?'내 차례':busy?'맞은편이 생각합니다':'맞은편 차례');
   el('tapHint').hidden=!!S.winner||S.turn!==S.me;
   el('btnResign').disabled=!!S.winner||S.moves.length<2;
-  el('say').textContent=S.say; el('say').classList.toggle('think',S.think);
-  el('talkDot').className=busy?'':'';
   el('vGrace').textContent=R.grace+'판'; el('vTarget').textContent=R.target+'%';
   el('setGrace').value=R.grace; el('setTarget').value=R.target; el('colB').checked=R.myColor===1; el('colW').checked=R.myColor===2;
-  if(document.activeElement!==el('setNote')) el('setNote').value=R.note||''; if(document.activeElement!==el('setGreet')) el('setGreet').value=R.greet||'';
   renderRec(); draw();
 }
 function renderRec(){
@@ -409,9 +396,19 @@ function aiPick(){
   const quiet=cand.filter(m=>!m.d.has.five).slice(1,6); const pool=quiet.length?quiet:cand.slice(0,3);
   return pool[Math.floor(Math.random()*pool.length)];
 }
-function aiMove(){
-  if(S.winner||S.turn!==S.ai) return;
-  const m=aiPick(); if(!m) return;
+async function aiMove(){
+  if(S.winner||S.turn!==S.ai||busy) return;
+  let m=aiPick(); if(!m) return;
+  if(S.intent==='try'){
+    const list=bestMoves(S.board,S.ai);
+    const forced=list.find(c=>c.a.has.five)||list.find(c=>c.d.has.five);   // 다섯이 있거나 막아야 하면 그대로
+    if(!forced){
+      busy=true; render(); const snap=S;
+      let mv=null; try{ mv=await claudeMove(list.slice(0,5)); }catch(e){ mv=null; }
+      busy=false; if(snap!==S||S.winner||S.turn!==S.ai) { render(); return; }
+      if(mv&&S.board[mv.y][mv.x]===0) m=mv;    // 빈칸이면 클로드의 수, 아니면 엔진의 수
+    } else m=forced;
+  }
   place(m.x,m.y);
 }
 
@@ -426,59 +423,41 @@ function place(x,y){
   if(S.moves.length===N*N){ S.winner=3; finish('draw'); return; }
   S.turn=3-me; S.tLast=Date.now(); render();
   if(S.turn===S.ai){ setTimeout(aiMove,380+Math.random()*500); }
-  else { const myN=S.moves.filter(m=>m.c===S.me).length; if(myN===6&&!S.said.mid){ S.said.mid=true; talk('mid'); } }
 }
 function finish(result){
   if(!S.counted){ S.counted=true;
     R.games.push({result,moves:S.moves.length,intent:S.intent,st:S.st,at:Date.now(),record:S.moves.map(m=>'ABCDEFGHIJKLMNO'[m.x]+(m.y+1)).join(' ')});
     saveRec(); }
-  render(); talk('end',result);
+  render();
 }
 function resign(){ if(S.winner||S.moves.length<2) return; S.winner=S.ai; finish('ai'); }
-function newGame(){ S=fresh(); render(); if(S.turn===S.ai) setTimeout(aiMove,500); talk('start'); }
+function newGame(){ S=fresh(); render(); if(S.turn===S.ai) setTimeout(aiMove,500); }
 
-// ---------- 맞은편의 말 ----------
-function fallbackLine(kind,result){
-  const n=gameNo(), P=patterns();
-  if(kind==='start'){ if(n===1) return (R.myColor===1?'앉으세요. 먼저 두시지요.':'앉으세요. 제가 먼저 두겠습니다.'); if(n<=R.grace) return `${n}번째 판. 지난 판은 ${P.dir?.split(' ')[0]||'그 줄'}로 가셨죠.`; return `${n}번째 판. 오늘은 저도 좀 두겠습니다.`; }
-  if(kind==='mid'){ return P.games?`또 ${P.dir.split(' ')[0]}입니까.`:'서두르지 않으시네요.'; }
-  if(result==='me') return n<=R.grace?'잘 두셨습니다. 다음 판도 봐 드리죠. 아니, 보겠습니다.':'이번엔 제가 졌습니다.';
-  if(result==='ai') return '이런 날도 있습니다.';
-  return '꽉 찼네요.';
+// ---------- 전력일 때: 클로드가 수를 고른다 ----------
+const COLS='ABCDEFGHIJKLMNO';
+function boardText(){ let t='   '+COLS.split('').join(' ')+'\n'; for(let y=0;y<N;y++) t+=String(y+1).padStart(2,' ')+' '+S.board[y].map(v=>v===0?'.':v===1?'X':'O').join(' ')+'\n'; return t; }
+function parseMove(m){ const t=String(m||'').trim().toUpperCase().replace(/\s+/g,''); const r=/^([A-O])(\d{1,2})$/.exec(t); if(!r) return null; const x=COLS.indexOf(r[1]), y=parseInt(r[2],10)-1; if(x<0||y<0||y>=N) return null; return {x,y}; }
+function movePrompt(cands){
+  const P=patterns(); const me=S.ai===1?'X (흑)':'O (백)';
+  const habit=P.games?`상대의 버릇(누적): 첫 수 ${P.first}, 좋아하는 줄 ${P.dir}, 공격:수비 ${P.ad}, 평균 ${P.len}.`:'상대의 버릇: 아직 모름.';
+  return `당신은 15x15 오목 선수입니다. 가로·세로·대각선으로 돌 다섯을 먼저 이으면 이깁니다. 당신의 돌은 ${me}. 이번 판은 전력으로 이기러 둡니다. 반드시 빈칸(.)에만 둡니다. 좌표는 열 문자(A~O)+행 숫자(1~15), 예 H8.
+${habit}
+현재 판:
+${boardText()}
+수순: ${S.moves.map(m=>COLS[m.x]+(m.y+1)).join(' ')||'(없음)'}
+참고 후보(강한 순): ${cands.map(c=>COLS[c.x]+(c.y+1)).join(', ')}
+JSON으로만: {"move":"H8"}`;
 }
-async function askClaude(prompt){
-  // 1) 아티팩트 안: 보는 사람의 클로드  2) 파일·앱: 서버 함수(ANTHROPIC_API_KEY)
+async function claudeMove(cands){
   if(sampleFn===undefined){ try{ sampleFn=window.claude?.use?await Promise.race([window.claude.use('sample'),new Promise(r=>setTimeout(()=>r(null),4000))]):null; }catch(e){ sampleFn=null; } }
-  if(sampleFn){ el('via').textContent='Claude'; const j=await sampleFn.json(prompt,{modelTier:'quick',cache:false}); return String(j?.say||'').trim(); }
-  el('via').textContent='Claude (서버)';
-  const r=await fetch(SB_URL+'/functions/v1/omok-talk',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:JSON.stringify({prompt})});
-  const j=await r.json(); if(j.error) throw new Error(j.error); return String(j.say||'').trim();
-}
-function buildPrompt(kind,result){
-  const n=gameNo()-(kind==='end'?1:0), P=patterns(), grace=n<=R.grace;
-  const rec=R.games.slice(-8).map((g,i)=>`${R.games.length-R.games.slice(-8).length+i+1}판 ${g.result==='me'?'상대 승':g.result==='ai'?'나 승':'무'} ${g.moves}수`).join(', ')||'없음';
-  const stats=P.games?`첫 수: ${P.first}. 좋아하는 줄: ${P.dir}. 공격:수비 = ${P.ad}. 한 수 생각 평균 ${P.think}. 판 길이 평균 ${P.len}.`:'아직 없음.';
-  const now=`이번 판 지금까지: 내 수 ${S.moves.filter(m=>m.c===S.ai).length}, 상대 수 ${S.moves.filter(m=>m.c===S.me).length}. 상대의 이번 판 버릇: 첫 수 ${S.st.first||'-'}, 줄 ${S.st.dirs.map((v,i)=>v?DIRN[i]+v:'').filter(Boolean).join('/')||'-'}, 공격 ${S.st.attack} 수비 ${S.st.defend}, 열린 삼 ${S.st.open3}번.`;
-  const phase=grace?`지금은 ${R.grace}판까지 상대를 지켜보며 져 주는 기간입니다. 져 주고 있다는 사실은 어떤 식으로도 내비치지 않습니다. 대신 상대의 버릇을 하나씩 짚습니다.`:`이제 ${R.grace}판이 지났고 당신은 진짜로 둡니다. 말투가 조금 더 서늘해져도 됩니다.`;
-  const ask=kind==='start'?`${n}번째 판이 시작됩니다. 앉은 상대에게 건넬 첫 한마디.`:kind==='mid'?`판 중간입니다. 지금 상대 수를 보고 흘리듯 한마디.`:`판이 끝났습니다. 결과: ${result==='me'?'상대 승':result==='ai'?'내 승':'무승부'}, ${S.moves.length}수. 기보: ${S.moves.map(m=>'ABCDEFGHIJKLMNO'[m.x]+(m.y+1)).join(' ')}. 판을 덮으며 한마디.`;
-  const about=R.note?`상대에 대해 아는 것: ${R.note}`:'상대에 대해 아는 것: 없음. 호칭 없이 존댓말.';
-  return `당신은 오목판 맞은편에 앉은 사람입니다. 이름은 없습니다. 말수가 적고 관찰이 정확하며, 상대를 어른으로 대합니다. 존댓말. 한 문장, 길어야 두 문장. 이모지·감탄사·따옴표 없음. 수를 가르치거나 좌표를 말하지 않습니다. 상대의 버릇을 사실로 짚되 평가하지 않습니다. 같은 말을 반복하지 않습니다. 기계·인공지능·프로그램이라는 말은 쓰지 않습니다.
-${about}
-${phase}
-전적(최근): ${rec}
-읽힌 버릇(누적): ${stats}
-${now}
-${ask}
-JSON으로만 답합니다: {"say":"..."}`;
-}
-async function talk(kind,result){
-  if(S.said[kind]&&kind!=='mid') return; S.said[kind]=true;
-  if(kind==='start'&&gameNo()===1&&R.greet){ setSay(R.greet,false); return; }
-  const snap=S; setSay('…',true);
-  let line='';
-  try{ line=await askClaude(buildPrompt(kind,result)); }catch(e){ line=''; el('via').textContent=''; }
-  if(snap!==S) return;
-  setSay(line||fallbackLine(kind,result),false);
+  let mv=null;
+  if(sampleFn){ const j=await sampleFn.json(movePrompt(cands),{modelTier:'quick',cache:false}); mv=parseMove(j?.move); }
+  else {
+    const r=await fetch(SB_URL+'/functions/v1/llm-move',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},
+      body:JSON.stringify({board:S.board,toMove:S.ai,history:S.moves.map(m=>COLS[m.x]+(m.y+1)),model:{provider:'anthropic',name:'claude-haiku-5-5',reasoning:'low'}})});
+    const j=await r.json(); if(j&&j.x!=null) mv={x:j.x,y:j.y};
+  }
+  return mv;
 }
 
 // ---------- 입력 ----------
@@ -495,8 +474,6 @@ el('btnResign').addEventListener('click',resign);
 el('btnReset').addEventListener('click',()=>{ R.games=[]; saveRec(); newGame(); });
 el('setGrace').addEventListener('input',e=>{ R.grace=+e.target.value; el('vGrace').textContent=R.grace+'판'; saveRec(); });
 el('setTarget').addEventListener('input',e=>{ R.target=+e.target.value; el('vTarget').textContent=R.target+'%'; saveRec(); });
-el('setNote').addEventListener('change',e=>{ R.note=e.target.value.trim(); saveRec(); });
-el('setGreet').addEventListener('change',e=>{ R.greet=e.target.value.trim(); saveRec(); });
 el('colB').addEventListener('change',()=>{ R.myColor=1; saveRec(); newGame(); });
 el('colW').addEventListener('change',()=>{ R.myColor=2; saveRec(); newGame(); });
 window.addEventListener('resize',draw);
