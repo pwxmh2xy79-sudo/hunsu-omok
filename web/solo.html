@@ -110,7 +110,7 @@ button:focus-visible,canvas:focus-visible,summary:focus-visible{outline:2px soli
       <summary>맞은편의 규칙</summary>
       <div class="set">
         <span>봐주는 판</span><input type="range" id="setGrace" min="0" max="30" step="1" value="10"><b id="vGrace">10판</b>
-        <span>그 뒤 맞은편 승률</span><input type="range" id="setTarget" min="0" max="100" step="5" value="30"><b id="vTarget">30%</b>
+        <span>그 뒤 내 승률</span><input type="range" id="setTarget" min="0" max="100" step="5" value="30"><b id="vTarget">30%</b>
         <span>내 돌</span><span><label><input type="radio" name="col" value="1" id="colB" checked> 흑(먼저)</label> &nbsp; <label><input type="radio" name="col" value="2" id="colW"> 백</label></span><span></span>
       </div>
       <div class="row" style="margin-top:10px"><button class="btn" id="btnReset">기록 지우기</button></div>
@@ -258,7 +258,7 @@ const DIRN=['가로','세로','대각선 ↘','대각선 ↗'];
 
 // ---------- 저장되는 것: 판 기록과 규칙 ----------
 let R=loadRec();
-function loadRec(){ try{ const j=JSON.parse(localStorage.getItem(LS)||'null'); if(j&&Array.isArray(j.games)) return j; }catch(e){} return {games:[],grace:10,target:30,myColor:1}; }
+function loadRec(){ try{ const j=JSON.parse(localStorage.getItem(LS)||'null'); if(j&&Array.isArray(j.games)){ if(!j.v){ j.target=100-(j.target??30); j.v=2; } return j; } }catch(e){} return {games:[],grace:10,target:30,myColor:1,v:2}; }
 function saveRec(){ try{ localStorage.setItem(LS,JSON.stringify(R)); }catch(e){} }
 
 // ---------- 한 판의 상태 ----------
@@ -273,7 +273,7 @@ function gameNo(){ return R.games.length+1; }
 function decideIntent(){
   const n=R.games.length;
   if(n<R.grace) return 'lose';
-  const T=R.target/100;
+  const T=1-R.target/100;   // 맞은편이 이겨야 할 비율 = 1 − 내 승률
   const after=R.games.slice(R.grace).slice(-20);
   if(!after.length) return Math.random()<T?'try':'lose';
   const rate=after.filter(g=>g.result==='ai').length/after.length;
