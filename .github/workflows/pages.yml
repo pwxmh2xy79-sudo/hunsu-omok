@@ -20,20 +20,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Source = GitHub Actions 일 때
-  deploy:
+  # Source = GitHub Actions 일 때: 올리기(build) → 내보내기(deploy)
+  build:
     runs-on: ubuntu-latest
-    continue-on-error: true
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - run: touch web/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
 
