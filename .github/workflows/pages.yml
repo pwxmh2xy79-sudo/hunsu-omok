@@ -1,9 +1,9 @@
 name: Pages (web/ 폴더를 주소로)
 
-# main에 올리면 web/ 폴더를 gh-pages 브랜치로 복사한다.
-# GitHub Pages가 gh-pages 브랜치를 그대로 서비스한다:
+# main에 올리면 web/ 폴더가 아래 주소로 공개된다.
 #   https://pwxmh2xy79-sudo.github.io/hunsu-omok/solo.html  (맞은편 오목)
 #   https://pwxmh2xy79-sudo.github.io/hunsu-omok/           (훈수 오목)
+# 저장소 Pages 설정이 "GitHub Actions"든 "Deploy from a branch(gh-pages)"든 둘 다 맞춰 둔다.
 on:
   push:
     branches: [main]
@@ -12,13 +12,33 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  publish:
+  # Source = GitHub Actions 일 때
+  deploy:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: touch web/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Source = Deploy from a branch (gh-pages) 일 때
+  branch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
