@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>훈수 오목</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 레이아웃: 한 열. 판은 화면 폭만큼 정사각형, 그 아래 훈수꾼 말판. 폰 우선. */
+:root{
+  --bg:#EDEFF3; --fg:#1B1E25; --muted:#687080; --panel:#FFFFFF; --line:#D4D8E0;
+  --accent:#1E8A69; --accent-ink:#FFFFFF; --warn:#C44A33;
+  --wood:#D9A85F; --wood-dark:#B9843C; --wood-line:#5B3D14;
+  --stone-b1:#5A5B60; --stone-b2:#101012; --stone-w1:#FFFFFF; --stone-w2:#D6D3CB;
+  --display:'Gowun Batang','Noto Serif KR',serif;
+  --body:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14171C; --fg:#E7E9ED; --muted:#98A0AB; --panel:#1D2127; --line:#2C3139;
+    --accent:#3DBE92; --accent-ink:#0C1A14; --warn:#E36D54;
+    --wood:#C4924D; --wood-dark:#9E7030; --wood-line:#3B280D;
+    --stone-b1:#4A4B50; --stone-b2:#0B0B0D; --stone-w1:#F6F4EE; --stone-w2:#C9C6BD;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14171C; --fg:#E7E9ED; --muted:#98A0AB; --panel:#1D2127; --line:#2C3139;
+  --accent:#3DBE92; --accent-ink:#0C1A14; --warn:#E36D54;
+  --wood:#C4924D; --wood-dark:#9E7030; --wood-line:#3B280D;
+  --stone-b1:#4A4B50; --stone-b2:#0B0B0D; --stone-w1:#F6F4EE; --stone-w2:#C9C6BD;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 28px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-size:1.5rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--panel)}
+.seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:.85rem;padding:5px 12px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.status{display:flex;align-items:center;gap:10px;min-height:28px;font-size:.95rem}
+.stone{width:18px;height:18px;border-radius:50%;flex:none;box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.stone.b{background:radial-gradient(circle at 35% 30%,var(--stone-b1),var(--stone-b2))}
+.stone.w{background:radial-gradient(circle at 35% 30%,var(--stone-w1),var(--stone-w2))}
+.status .hint{color:var(--muted);font-size:.8rem;margin-left:auto}
+.board{width:100%;max-width:100%;aspect-ratio:1/1;border-radius:6px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.25);touch-action:manipulation}
+canvas{display:block;width:100%;height:100%}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.who{display:flex;align-items:center;gap:8px;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.who i{width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block}
+.lb .who i{background:var(--fg)}
+.coach p{margin:0;min-height:1.5em;font-size:1rem}
+.coach p.urgent{color:var(--warn);font-weight:500}
+#csay{display:flex;flex-direction:column;gap:4px}
+#csay p{margin:0;font-size:.9rem;color:var(--muted)}
+#csay p b{color:var(--fg);font-weight:500}
+#csay p .tag{display:inline-block;font-size:.75rem;padding:1px 6px;border-radius:999px;border:1px solid var(--line);margin-left:4px;color:var(--muted)}
+#csay p .tag.hit{color:var(--accent);border-color:var(--accent)}
+#csay p .tag.miss{color:var(--warn);border-color:var(--warn)}
+.seat .lbl input{accent-color:var(--accent);margin:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button.btn{font:inherit;font-size:.9rem;padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+button.btn.main{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
+button.btn:disabled{opacity:.45;cursor:default}
+label.sw{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;color:var(--muted);margin-left:auto;cursor:pointer}
+label.sw input{accent-color:var(--accent)}
+.log{font-size:.8rem;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
+.log span b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}
+.seat{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;font-size:.85rem;color:var(--muted)}
+.seat .lbl{display:flex;align-items:center;gap:6px;font-weight:500;color:var(--fg)}
+.seat .cfg{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;min-width:0}
+.seat select,.seat input[type=range]{font:inherit;font-size:.85rem;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:4px 6px;max-width:100%}
+.seat input[type=range]{width:80px;padding:0;border:0;accent-color:var(--accent)}
+.seat b{font-variant-numeric:tabular-nums;color:var(--fg);font-weight:500}
+.lb table{width:100%;border-collapse:collapse;font-size:.85rem;font-variant-numeric:tabular-nums}
+.lb th{text-align:left;font-weight:500;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--line)}
+.lb td{padding:6px 0;border-bottom:1px solid var(--line)}
+.lb tr:last-child td{border-bottom:0}
+.lb td:not(:first-child),.lb th:not(:first-child){text-align:right}
+button:focus-visible,canvas:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){ .coach p{transition:color .2s} }
+</style>
+<style>html,body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} [hidden]{display:none!important}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>훈수 오목</h1>
+    <div class="seg" role="group" aria-label="대국 방식">
+      <button id="modePvp" aria-pressed="true">둘이서</button>
+      <button id="modeAi" aria-pressed="false">연습 상대</button>
+    </div>
+  </header>
+
+  <div class="status">
+    <span class="stone b" id="turnStone"></span>
+    <span id="turnText">흑 차례</span>
+    <span class="hint" id="tapHint">같은 자리 두 번 누르면 착수</span>
+  </div>
+
+  <section class="card">
+    <div class="who"><i></i>훈수꾼 자리</div>
+    <div class="seat">
+      <span class="lbl">엔진</span><div class="cfg"><span>정답 엔진. 항상 1·2·3을 찍습니다.</span></div>
+      <span class="lbl"><input type="checkbox" data-c="openai" data-k="on" id="onOpenai">GPT</span><div class="cfg" id="cfgOpenai"></div>
+      <span class="lbl"><input type="checkbox" data-c="google" data-k="on" id="onGoogle">Gemini</span><div class="cfg" id="cfgGoogle"></div>
+      <span class="lbl"><input type="checkbox" data-c="anthropic" data-k="on" id="onAnthropic">Claude</span><div class="cfg" id="cfgAnthropic"></div>
+    </div>
+  </section>
+
+  <div class="board"><canvas id="cv" tabindex="0" aria-label="오목판 15줄"></canvas></div>
+
+  <section class="card coach" aria-live="polite">
+    <div class="who"><i></i>훈수꾼</div>
+    <p id="say">가운데가 가장 넓습니다. 첫 수는 거기서.</p>
+    <div id="csay"></div>
+    <div class="row">
+      <button class="btn main" id="btnCoach">훈수</button>
+      <button class="btn" id="btnUndo">무르기</button>
+      <button class="btn" id="btnNew">새 대국</button>
+      <label class="sw"><input type="checkbox" id="autoCoach" checked>3수부터 자동 훈수</label>
+    </div>
+    <div class="log"><span>수 <b id="nMoves">0</b></span><span>흑 <b id="winB">0</b>승</span><span>백 <b id="winW">0</b>승</span></div>
+  </section>
+
+  <section class="card lb" id="lbBox">
+    <div class="who"><i></i>훈수 리더보드</div>
+    <table id="lbTable"><thead><tr><th>훈수꾼</th><th>Elo</th><th>대결</th><th>불법수</th><th>적중</th></tr></thead><tbody></tbody></table>
+  </section>
+</div>
+
+<script>
+// 오목 엔진 + 훈수 분석 (순수 로직, UI 없음)
+const N = 15;
+const DIRS = [[1,0],[0,1],[1,1],[1,-1]];
+const PATS = [
+  {n:'five',  v:1000000, p:['xxxxx']},
+  {n:'open4', v:100000,  p:['_xxxx_']},
+  {n:'four',  v:10000,   p:['xxxx_','_xxxx','xxx_x','x_xxx','xx_xx']},
+  {n:'open3', v:8000,    p:['__xxx_','_xxx__','_xx_x_','_x_xx_']},
+  {n:'three', v:500,     p:['xxx__','__xxx','_xxx_','xx_x_','_xx_x','x_xx_','_x_xx','xx__x','x__xx','x_x_x']},
+  {n:'open2', v:300,     p:['__xx__','_x_x_','_x__x_']},
+  {n:'two',   v:50,      p:['xx_','_xx','x_x']},
+  {n:'one',   v:10,      p:['x']},
+];
+const KO = {five:'다섯', open4:'열린 사', four:'사', open3:'열린 삼', three:'삼', open2:'열린 이', two:'이', one:''};
+
+function inb(i,j){ return i>=0 && j>=0 && i<N && j<N; }
+function emptyBoard(){ return Array.from({length:N},()=>Array(N).fill(0)); }
+
+function lineStr(b,x,y,dx,dy,c){
+  let s='';
+  for(let k=-4;k<=4;k++){
+    if(k===0){ s+='x'; continue; }
+    const i=x+k*dx, j=y+k*dy;
+    if(!inb(i,j)) s+='o';
+    else { const v=b[j][i]; s += v===0?'_' : v===c?'x':'o'; }
+  }
+  return s;
+}
+function bestPat(s){
+  for(const pat of PATS){
+    for(const p of pat.p){
+      const L=p.length;
+      for(let i=0;i+L<=9;i++){
+        if(i<=4 && i+L>4 && s.substr(i,L)===p) return pat;
+      }
+    }
+  }
+  return null;
+}
+function analyze(b,x,y,c){
+  const r={names:[],score:0,fours:0,open3:0,has:{},combo:''};
+  for(const [dx,dy] of DIRS){
+    const p=bestPat(lineStr(b,x,y,dx,dy,c));
+    if(!p) continue;
+    r.names.push(p.n); r.score+=p.v; r.has[p.n]=true;
+    if(p.n==='four'||p.n==='open4') r.fours++;
+    if(p.n==='open3') r.open3++;
+  }
+  if(r.fours>=2){ r.score+=100000; r.combo='사사'; }
+  else if(r.fours>=1 && r.open3>=1){ r.score+=50000; r.combo='사삼'; }
+  else if(r.open3>=2){ r.score+=30000; r.combo='삼삼'; }
+  return r;
+}
+function scoreMove(b,x,y,me){
+  const a=analyze(b,x,y,me), d=analyze(b,x,y,3-me);
+  return {x,y,a,d,score:a.score + d.score*0.85};
+}
+function candidates(b){
+  const set=new Set(); let any=false;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    if(!b[y][x]) continue; any=true;
+    for(let j=-2;j<=2;j++)for(let i=-2;i<=2;i++){
+      const X=x+i,Y=y+j;
+      if(inb(X,Y)&&!b[Y][X]) set.add(Y*N+X);
+    }
+  }
+  if(!any) return [[7,7]];
+  return [...set].map(k=>[k%N,Math.floor(k/N)]);
+}
+function bestMoves(b,me,limit){
+  const list=candidates(b).map(([x,y])=>scoreMove(b,x,y,me));
+  list.sort((p,q)=>q.score-p.score);
+  return limit?list.slice(0,limit):list;
+}
+function winLine(b,x,y){
+  const c=b[y][x]; if(!c) return null;
+  for(const [dx,dy] of DIRS){
+    const cells=[[x,y]];
+    for(const sgn of [1,-1]){
+      let i=x+sgn*dx,j=y+sgn*dy;
+      while(inb(i,j)&&b[j][i]===c){ cells.push([i,j]); i+=sgn*dx; j+=sgn*dy; }
+    }
+    if(cells.length>=5) return cells;
+  }
+  return null;
+}
+
+// ----- 훈수꾼의 말 -----
+function colorName(c){ return c===1?'흑':'백'; }
+function describe(mv, me){
+  const a=mv.a, d=mv.d, opp=colorName(3-me);
+  if(a.has.five) return '여기면 다섯. 끝내세요.';
+  if(d.has.five) return `${opp} 사가 섰어요. 여기를 안 막으면 다음 수에 집니다.`;
+  if(a.combo==='사사') return '사사. 사가 둘 동시에 서서 막을 수 없습니다.';
+  if(a.has.open4) return '열린 사. 양쪽을 다 막을 수는 없습니다.';
+  if(a.combo==='사삼') return '사삼. 사를 막는 사이 삼이 열린 사로 자랍니다.';
+  if(d.combo==='사사'||d.has.open4) return `${opp} 열린 삼의 급소. 놔두면 열린 사가 됩니다.`;
+  if(a.combo==='삼삼') return '삼삼. 열린 삼이 둘 생겨 한쪽은 못 막습니다.';
+  if(a.has.open3 && d.has.four) return `열린 삼을 만들면서 ${opp} 삼의 길목도 막습니다.`;
+  if(a.has.open3) return '열린 삼. 상대가 응수해야 합니다.';
+  if(a.has.four) return '사를 만들어 한 수를 강제합니다.';
+  if(d.combo==='사삼'||d.combo==='삼삼') return `${opp}이 ${d.combo}을 만들 자리. 먼저 앉아야 합니다.`;
+  if(d.has.four) return `${opp} 삼이 자라는 길목입니다.`;
+  if(a.has.three && a.names.filter(n=>n==='three').length>=2) return '삼이 둘 겹치는 자리. 다음 수에 열립니다.';
+  if(a.has.three||a.has.open2) return '돌이 서로 이어지는 자리. 길이 여럿 열립니다.';
+  return '모양을 넓히는 자리. 가운데 쪽이 길이 많습니다.';
+}
+function rateMove(best, played, me, who){
+  const opp=colorName(3-me), p=who?who+': ':'';
+  if(best.a.has.five && !played.a.has.five) return who?`${who}: 다섯을 만들 자리를 지나쳤습니다.`:'다섯을 만들 자리가 있었어요.';
+  if(best.d.has.five && !(played.d.has.five||played.a.has.five)) return who?`${who}: ${opp} 사를 안 막았습니다. 다음 수가 위험합니다.`:`${opp} 사를 두고 다른 데 두셨네요. 다음 수가 위험합니다.`;
+  if(played.score>=best.score*0.95) return p+'좋은 수. '+describe(played,me);
+  if(played.score>=best.score*0.5) return p+'무난합니다.';
+  return who?`${who}: 더 큰 자리를 놓쳤습니다.`:'더 큰 자리가 있었어요. 훈수를 눌러 보세요.';
+}
+function situation(b, next){
+  // next 차례인 사람에게 지금 판의 위협을 한 줄로
+  const top=bestMoves(b,next,1)[0]; if(!top) return '';
+  const opp=colorName(3-next), me=colorName(next);
+  if(top.a.has.five) return `${me}, 다섯이 보입니다.`;
+  if(top.d.has.five) return `${opp} 사가 서 있습니다. ${me}은 막아야 합니다.`;
+  if(top.a.has.open4||top.a.combo) return `${me}에게 결정적인 수가 있습니다.`;
+  if(top.d.has.open4) return `${opp} 열린 삼. ${me}이 지금 막지 않으면 열린 사가 됩니다.`;
+  return '';
+}
+
+
+</script>
+<script>
+(function(){
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const el=id=>document.getElementById(id);
+const SB_URL='https://fyrtbxbgvsqoiaktkkcx.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5cnRieGJndnNxb2lha3Rra2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwODc5NzksImV4cCI6MjEwOTY2Mzk3OX0.NH-NjK8_LE1kFSlWmx-7nJLDUoR5XD8_4_Pi59NPe5k';
+const COLS='ABCDEFGHIJKLMNO';
+const AUTO_FROM=3; // 자동 훈수는 3수부터. 버튼은 첫 수부터.
+const PROVS=['openai','google','anthropic'];
+const MODELS={openai:['gpt-4.1-mini','gpt-4.1','gpt-5-mini','gpt-5','o4-mini'], google:['gemini-2.5-flash','gemini-2.5-pro','gemini-2.5-flash-lite'], anthropic:['claude-haiku-5-5','claude-sonnet-5-5','claude-opus-5-5']};
+const PROV_KO={openai:'GPT',google:'Gemini',anthropic:'Claude'}, MARK={openai:'G',google:'Ge',anthropic:'C'}, MCOL={openai:'#2F6FD6',google:'#B4541F',anthropic:'#7A4FC9'};
+const REASON_KO={low:'낮음',medium:'보통',high:'높음'};
+let S, busy=false;
+
+function coachCfg(provider){ return {on:false,provider,name:MODELS[provider][0],reasoning:'medium'}; }
+function coachStat(){ return {asked:0,top1:0,top3:0,illegal:0,adopted:0,ms:0}; }
+function fresh(){ return {board:emptyBoard(),moves:[],turn:1,winner:0,win:null,mode:'pvp',pending:null,marks:[],
+  say:'가운데가 가장 넓습니다. 첫 수는 거기서.',urgent:false,auto:true,wins:{1:0,2:0},
+  coaches:{openai:coachCfg('openai'),google:coachCfg('google'),anthropic:coachCfg('anthropic')}, cs:{openai:coachStat(),google:coachStat(),anthropic:coachStat()}, duel:[], ask:null, reported:false}; }
+function isReasoning(c){ return c.provider==='openai'?/^(o\d|gpt-5)/.test(c.name):c.provider==='google'?/gemini-(2\.5|3)/.test(c.name):true; }
+function coachKey(c){ return c.provider+':'+c.name+(isReasoning(c)?':'+c.reasoning:''); }
+function coachName(c){ return c.name+(isReasoning(c)?' ·추론 '+REASON_KO[c.reasoning]:''); }
+function activeCoaches(){ return PROVS.filter(k=>S.coaches[k].on); }
+function isBotTurn(){ return S.mode==='ai'&&S.turn===2&&!S.winner; }
+function seatLabel(c){ return c===1?'흑':'백'; }
+
+function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+function draw(){
+  const rect=cv.getBoundingClientRect(); const W=rect.width||360, dpr=window.devicePixelRatio||1;
+  if(cv.width!==Math.round(W*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(W*dpr); }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const cell=W/N, o=cell/2, r=cell*0.44;
+  const g=ctx.createLinearGradient(0,0,W,W); g.addColorStop(0,css('--wood')); g.addColorStop(1,css('--wood-dark'));
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,W);
+  ctx.strokeStyle='rgba(60,35,5,.08)'; ctx.lineWidth=1;
+  for(let i=0;i<18;i++){ ctx.beginPath(); const y=(i*W/17)+Math.sin(i)*6; ctx.moveTo(0,y); ctx.bezierCurveTo(W*.3,y+8,W*.6,y-8,W,y+3); ctx.stroke(); }
+  ctx.strokeStyle=css('--wood-line'); ctx.lineWidth=1;
+  for(let i=0;i<N;i++){ const p=o+i*cell;
+    ctx.beginPath(); ctx.moveTo(o,p); ctx.lineTo(W-o,p); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p,o); ctx.lineTo(p,W-o); ctx.stroke(); }
+  ctx.fillStyle=css('--wood-line');
+  for(const [x,y] of [[3,3],[3,11],[7,7],[11,3],[11,11]]){ ctx.beginPath(); ctx.arc(o+x*cell,o+y*cell,cell*0.09,0,Math.PI*2); ctx.fill(); }
+  const stone=(x,y,c,alpha)=>{
+    const cx=o+x*cell, cy=o+y*cell;
+    ctx.save(); ctx.globalAlpha=alpha;
+    ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=cell*0.18; ctx.shadowOffsetY=cell*0.06;
+    const rg=ctx.createRadialGradient(cx-r*0.35,cy-r*0.4,r*0.1,cx,cy,r);
+    if(c===1){ rg.addColorStop(0,css('--stone-b1')); rg.addColorStop(1,css('--stone-b2')); }
+    else { rg.addColorStop(0,css('--stone-w1')); rg.addColorStop(1,css('--stone-w2')); }
+    ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.restore();
+  };
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){ if(S.board[y][x]) stone(x,y,S.board[y][x],1); }
+  const last=S.moves[S.moves.length-1];
+  if(last){ ctx.fillStyle=last.c===1?css('--stone-w1'):css('--stone-b2'); ctx.beginPath(); ctx.arc(o+last.x*cell,o+last.y*cell,cell*0.1,0,Math.PI*2); ctx.fill(); }
+  if(S.pending && !S.winner) stone(S.pending[0],S.pending[1],S.turn,0.45);
+  const ac=css('--accent');
+  S.marks.forEach((m,i)=>{
+    const cx=o+m.x*cell, cy=o+m.y*cell;
+    ctx.lineWidth=2; ctx.strokeStyle=ac; ctx.fillStyle=ac;
+    ctx.beginPath(); ctx.arc(cx,cy,r*0.78,0,Math.PI*2);
+    if(i===0) ctx.fill(); else ctx.stroke();
+    ctx.fillStyle=i===0?css('--accent-ink'):ac; ctx.font=`700 ${Math.round(cell*0.5)}px ${css('--body')}`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(i+1),cx,cy+1);
+  });
+  if(S.ask&&S.ask.n===S.moves.length){ for(const k of Object.keys(S.ask.coaches)){ const m=S.ask.coaches[k]; if(m.x==null) continue;
+    const cx=o+m.x*cell, cy=o+m.y*cell; const col=MCOL[k];
+    ctx.lineWidth=2.5; ctx.strokeStyle=col; ctx.beginPath(); ctx.arc(cx,cy,r*0.95,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(cx+r*0.7,cy-r*0.7,r*0.55,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font=`700 ${Math.round(cell*0.36)}px ${css('--body')}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(MARK[k],cx+r*0.7,cy-r*0.7+1); } }
+  if(S.win){ const a=S.win[0]; const far=S.win.reduce((m,p)=>{const d=Math.hypot(p[0]-a[0],p[1]-a[1]); return d>m.d?{d,p}:m;},{d:0,p:a}).p;
+    ctx.strokeStyle=css('--warn'); ctx.lineWidth=cell*0.12; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(o+a[0]*cell,o+a[1]*cell); ctx.lineTo(o+far[0]*cell,o+far[1]*cell); ctx.stroke(); }
+}
+
+function cfgHtml(k){
+  const c=S.coaches[k]; if(!c.on) return `<span>꺼짐</span>`;
+  let h=`<select data-c="${k}" data-k="name">${MODELS[k].map(m=>`<option${m===c.name?' selected':''}>${m}</option>`).join('')}</select>`;
+  h+=`<label>추론 <select data-c="${k}" data-k="reasoning"><option value="low"${c.reasoning==='low'?' selected':''}>낮음</option><option value="medium"${c.reasoning==='medium'?' selected':''}>보통</option><option value="high"${c.reasoning==='high'?' selected':''}>높음</option></select></label>`;
+  return h;
+}
+function renderCoaches(){ for(const [k,id] of [['openai','Openai'],['google','Google'],['anthropic','Anthropic']]){ el('cfg'+id).innerHTML=cfgHtml(k); el('on'+id).checked=S.coaches[k].on; } }
+function renderCsay(){
+  const box=el('csay'); box.innerHTML='';
+  if(!S.ask||S.ask.n!==S.moves.length) return;
+  for(const k of activeCoaches()){ const m=S.ask.coaches[k]; const p=document.createElement('p'); const nm=PROV_KO[k]+' '+coachName(S.coaches[k]);
+    if(!m){ p.innerHTML=`<b>${nm}</b> 생각 중…`; }
+    else if(m.error){ p.innerHTML=`<b>${nm}</b> ${m.error}`; }
+    else if(m.x==null){ p.innerHTML=`<b>${nm}</b> ${m.move||'?'} <span class="tag miss">둘 수 없는 자리</span>`; }
+    else { const tag=m.rank===0?'<span class="tag hit">엔진 1순위</span>':m.rank<3?'<span class="tag hit">엔진 상위 3</span>':'<span class="tag miss">엔진과 다름</span>';
+      p.innerHTML=`<b>${nm}</b> ${(m.ms/1000).toFixed(1)}초 · <b>${m.move}</b>${m.illegal?' <span class="tag miss">되물음 '+m.illegal+'</span>':''}${tag} — ${m.reason||''}`; }
+    box.appendChild(p); }
+}
+
+function setSay(t,urgent){ S.say=t; S.urgent=!!urgent; el('say').textContent=t; el('say').classList.toggle('urgent',!!urgent); }
+function render(){
+  el('turnStone').className='stone '+(S.turn===1?'b':'w');
+  let t;
+  if(S.winner) t=S.winner===1?'흑 승':S.winner===2?'백 승':'무승부';
+  else { t=seatLabel(S.turn)+' 차례'; if(S.mode==='ai'&&S.turn===2) t+=' (훈수꾼이 둡니다)'; }
+  el('turnText').textContent=t;
+  el('tapHint').hidden=!!S.winner;
+  el('nMoves').textContent=S.moves.length; el('winB').textContent=S.wins[1]; el('winW').textContent=S.wins[2];
+  el('btnUndo').disabled=S.moves.length===0||busy;
+  el('btnCoach').disabled=!!S.winner||isBotTurn();
+  for(const [id,m] of [['modePvp','pvp'],['modeAi','ai']]) el(id).setAttribute('aria-pressed',S.mode===m);
+  renderCsay();
+  el('autoCoach').checked=S.auto;
+  el('say').textContent=S.say; el('say').classList.toggle('urgent',S.urgent);
+  draw();
+}
+
+function place(x,y){
+  if(S.winner||S.board[y][x]) return;
+  const me=S.turn;
+  const list=bestMoves(S.board,me); const best=list[0];
+  const played=list.find(m=>m.x===x&&m.y===y)||scoreMove(S.board,x,y,me);
+  S.board[y][x]=me; S.moves.push({x,y,c:me}); S.pending=null; S.marks=[];
+  settleAsk(x,y);
+  const line=winLine(S.board,x,y);
+  if(line){ S.winner=me; S.win=line; S.wins[me]++; setSay(seatLabel(me)+' 승. 다섯이 섰습니다.'); render(); report(); return; }
+  if(S.moves.length===N*N){ S.winner=3; setSay('판이 꽉 찼습니다. 무승부.'); render(); report(); return; }
+  S.turn=3-me;
+  const engineMove=S.mode==='ai'&&me===2;
+  const sit=situation(S.board,S.turn);
+  if(engineMove) setSay(sit||'훈수꾼이 두었습니다. 흑 차례.', !!sit);
+  else { const r=rateMove(best,played,me,null); setSay(sit?r+' '+sit:r, !!sit && /막아야|위험|사가 서/.test(sit)); }
+  render();
+  if(S.mode==='ai'&&S.turn===2){ setTimeout(aiMove,420); }
+  else if(S.auto && S.moves.length>=AUTO_FROM){ coach(); }
+}
+
+async function sbFetch(path,body){
+  const r=await fetch(SB_URL+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({error:'응답 없음'})); if(!r.ok&&!j.error) j.error='HTTP '+r.status; return j;
+}
+async function askCoach(k, ask){
+  const c=S.coaches[k];
+  const history=S.moves.map(m=>COLS[m.x]+(m.y+1));
+  let j; try{ j=await sbFetch('/functions/v1/llm-move',{board:ask.board,toMove:ask.turn,history,model:{provider:k,name:c.name,temperature:0.2,reasoning:c.reasoning}}); }catch(e){ j={error:String(e)}; }
+  if(S.ask!==ask) return;   // 그사이 수가 놓였거나 새 대국
+  const st=S.cs[k]; st.asked++; st.ms+=j.ms||0; st.illegal+=j.illegal||0;
+  if(j.error){ ask.coaches[k]={error:j.error}; }
+  else if(j.forfeit){ ask.coaches[k]={x:null,y:null,move:j.move,illegal:j.illegal,ms:j.ms}; }
+  else { let rank=ask.list.findIndex(m=>m.x===j.x&&m.y===j.y); if(rank<0) rank=99;
+    const sc=scoreMove(ask.board,j.x,j.y,ask.turn).score;
+    ask.coaches[k]={x:j.x,y:j.y,move:j.move,reason:j.reason,ms:j.ms,illegal:j.illegal||0,rank,score:sc};
+    if(rank===0) st.top1++; if(rank<3) st.top3++; }
+  render();
+}
+function settleAsk(x,y){
+  const a=S.ask; if(!a||a.n!==S.moves.length||a.turn!==S.turn) return;
+  const rec={};
+  for(const k of Object.keys(a.coaches)){ const m=a.coaches[k]; if(!m||m.error) continue;
+    rec[k]=m.x==null?-1:m.score;                      // 둘 수 없는 자리는 최하점
+    if(m.x===x&&m.y===y) S.cs[k].adopted++; }
+  if(Object.keys(rec).length>=2) S.duel.push(rec);
+}
+function pairScore(a,b){ let w=0,l=0,d=0; for(const r of S.duel){ if(!(a in r)||!(b in r)) continue; if(r[a]>r[b]) w++; else if(r[b]>r[a]) l++; else d++; } return {w,l,d,n:w+l+d}; }
+function coachPayload(k){ const c=S.coaches[k]; return {key:coachKey(c),kind:'model',provider:k,model:c.name,config:{reasoning:c.reasoning}}; }
+async function report(){
+  if(S.reported) return; const act=activeCoaches().filter(k=>S.cs[k].asked>0); if(!act.length) return; S.reported=true;
+  const statsFor=(keys,used)=>{ const st={illegal:{},hint:{}}; for(const k of keys){ if(used.has(k)) continue; used.add(k); const key=coachKey(S.coaches[k]); st.illegal[key]=S.cs[k].illegal; st.hint[key]={hits:S.cs[k].top3,total:S.cs[k].asked}; } return st; };
+  const used=new Set(); const lines=[];
+  if(act.length===1){ const k=act[0]; await sbFetch('/functions/v1/report-game',{gameType:'omok',black:coachPayload(k),white:coachPayload(k),moves:S.moves,result:'draw',stats:statsFor([k],used)}).catch(()=>{}); }
+  else for(let i=0;i<act.length;i++) for(let j=i+1;j<act.length;j++){ const a=act[i], b=act[j]; const p=pairScore(a,b);
+    if(!p.n){ continue; }
+    const result=p.w>p.l?'black':p.l>p.w?'white':'draw';
+    let r; try{ r=await sbFetch('/functions/v1/report-game',{gameType:'omok',black:coachPayload(a),white:coachPayload(b),moves:S.moves,result,stats:statsFor([a,b],used)}); }catch(e){ r={error:String(e)}; }
+    if(r.ok&&r.rated) lines.push(`${PROV_KO[a]} ${p.w}–${p.l} ${PROV_KO[b]} (Elo ${r.black.elo}${r.black.delta>=0?'+':''}${r.black.delta} / ${r.white.elo}${r.white.delta>=0?'+':''}${r.white.delta})`); }
+  if(lines.length) setSay('이 판의 훈수 대결 · '+lines.join(' · '));
+  loadLeaderboard();
+}
+async function loadLeaderboard(){
+  let rows; try{ rows=await sbFetch('/rest/v1/leaderboard?game_type=eq.omok&select=player,kind,provider,model,elo,games,wins,losses,draws,illegal_moves,hint_pct&kind=eq.model&order=elo.desc'); }catch(e){ rows=[]; }
+  const tb=el('lbTable').querySelector('tbody'); tb.innerHTML='';
+  if(!Array.isArray(rows)||!rows.length){ tb.innerHTML='<tr><td colspan="5">아직 기록된 대국이 없습니다. 첫 판을 두세요.</td></tr>'; return; }
+  for(const r of rows){ const tr=document.createElement('tr');
+    const parts=(r.player||'').split(':'); const name=r.kind==='human'?'사람':(r.model||parts[1]||r.player)+(parts[2]?' ·추론 '+(REASON_KO[parts[2]]||parts[2]):'');
+    tr.innerHTML=`<td>${name}</td><td>${r.elo}</td><td>${r.wins}승 ${r.losses}패${r.draws?' '+r.draws+'무':''}</td><td>${r.illegal_moves}</td><td>${r.hint_pct==null?'–':r.hint_pct+'%'}</td>`;
+    tb.appendChild(tr); }
+}
+function aiMove(){
+  if(S.winner||S.turn!==2) return;
+  const list=bestMoves(S.board,2,6); const top=list[0];
+  const pool=list.filter(m=>m.score>=top.score*0.9); const pick=pool[Math.floor(Math.random()*pool.length)];
+  place(pick.x,pick.y);
+}
+function coach(){
+  if(S.winner||isBotTurn()) return;
+  const list=bestMoves(S.board,S.turn,3); S.marks=list;
+  const sit=situation(S.board,S.turn);
+  setSay('1번: '+describe(list[0],S.turn), !!sit && /막아야|사가 서/.test(sit));
+  if(!(S.ask&&S.ask.n===S.moves.length&&S.ask.turn===S.turn)){
+    S.ask={n:S.moves.length,turn:S.turn,board:S.board.map(r=>r.slice()),list,coaches:{}};
+    for(const k of activeCoaches()) askCoach(k,S.ask);
+  }
+  render();
+}
+function undo(){
+  if(!S.moves.length) return;
+  let n=1; const last=S.moves[S.moves.length-1];
+  if(S.moves.length>=2 && S.mode==='ai'&&last.c===2) n=2;
+  for(let i=0;i<n;i++){ const m=S.moves.pop(); S.board[m.y][m.x]=0; }
+  if(S.winner&&S.winner!==3){ S.wins[S.winner]=Math.max(0,S.wins[S.winner]-1); }
+  S.winner=0; S.win=null; S.pending=null; S.marks=[]; S.reported=false; S.ask=null;
+  S.turn=S.moves.length? 3-S.moves[S.moves.length-1].c : 1;
+  setSay('한 수 물렀습니다. '+seatLabel(S.turn)+' 차례.'); render();
+}
+function newGame(){
+  const keep={wins:S.wins,mode:S.mode,auto:S.auto,coaches:S.coaches}; S=fresh(); Object.assign(S,keep);
+  renderCoaches(); render(); loadLeaderboard();
+}
+
+cv.addEventListener('pointerup',e=>{
+  if(S.winner||isBotTurn()) return;
+  const rect=cv.getBoundingClientRect(); const cell=rect.width/N;
+  const x=Math.floor((e.clientX-rect.left)/cell), y=Math.floor((e.clientY-rect.top)/cell);
+  if(x<0||y<0||x>=N||y>=N||S.board[y][x]) return;
+  if(S.pending&&S.pending[0]===x&&S.pending[1]===y) place(x,y);
+  else { S.pending=[x,y]; draw(); }
+});
+el('btnCoach').addEventListener('click',coach);
+el('btnUndo').addEventListener('click',undo);
+el('btnNew').addEventListener('click',newGame);
+el('autoCoach').addEventListener('change',e=>{ S.auto=e.target.checked; if(S.auto&&S.moves.length>=AUTO_FROM&&!isBotTurn()) coach(); else if(!S.auto){ S.marks=[]; draw(); } });
+el('modePvp').addEventListener('click',()=>{ S.mode='pvp'; newGame(); });
+el('modeAi').addEventListener('click',()=>{ S.mode='ai'; newGame(); });
+document.querySelector('.seat').addEventListener('change',e=>{
+  const k=e.target.dataset.c, f=e.target.dataset.k; if(!k||!f) return;
+  const c=S.coaches[k];
+  if(f==='on') c.on=e.target.checked; else if(f==='name') c.name=e.target.value; else if(f==='reasoning') c.reasoning=e.target.value;
+  renderCoaches();
+  if(f==='on'&&c.on&&S.ask&&S.ask.n===S.moves.length&&!S.ask.coaches[k]) askCoach(k,S.ask);
+  render();
+});
+window.addEventListener('resize',draw);
+if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw); }
+
+function start(data){
+  S=(data&&data.board&&data.coaches)?data:fresh();
+  renderCoaches(); render(); loadLeaderboard();
+  if(S.mode==='ai'&&S.turn===2&&!S.winner) setTimeout(aiMove,420);
+}
+window.claude?.hot?.snapshot?.(()=>S);
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>
