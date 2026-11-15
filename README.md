@@ -71,5 +71,7 @@ npx cap open android  # Android Studio
 
 ### 카톡으로 보내는 주소
 
-`.github/workflows/pages.yml`이 `web/`을 GitHub Pages로 올린다. 저장소 Settings → Pages → Source를 **GitHub Actions**로 한 번 바꾸면, 다음부터 `main`에 올릴 때마다
-`https://<계정>.github.io/hunsu-omok/solo.html` 이 갱신된다. 이 주소를 카톡으로 보내면 된다.
+`.github/workflows/pages.yml`이 `main`에 올라온 `web/`을 `gh-pages` 브랜치로 복사하고, GitHub Pages가 그 브랜치를 서비스한다.
+
+- 맞은편 오목: https://pwxmh2xy79-sudo.github.io/hunsu-omok/solo.html
+- 훈수 오목: https://pwxmh2xy79-sudo.github.io/hunsu-omok/
